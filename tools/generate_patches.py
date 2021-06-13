@@ -23,13 +23,26 @@ def create_patches(dir_src, dir_out):
     size_w = 286
     stride_w = 143
 
+
+    size_h = 364
+    stride_h = 91
+    
+    size_w = 364
+    stride_w = 91
+
+    size_h = 512
+    stride_h = 128
+    
+    size_w = 512
+    stride_w = 128
+
     for filename in os.listdir(dir_src):
         try:
             img_path = os.path.join(dir_src, filename)
             print (img_path)
             img = cv2.imread(img_path)
             name = filename.split(".")[0]
-            patches = get_patches_2(img, size_h=size_h, stride_h=stride_h, size_w=size_w, stride_w=stride_w, pad=True)
+            patches = get_patches_2(img, size_h=size_h, stride_h=stride_h, size_w=size_w, stride_w=stride_w, pad=False)
             # plot_patches_2(patches, org_img_size = org_img_size, size_h=size_h, stride_h=stride_h,  size_w=size_w, stride_w=stride_w)
             # plt.show()
             for i, patch in enumerate(tqdm(patches)):
@@ -41,4 +54,5 @@ if __name__ == '__main__':
 
     # parser.add_argument('--load_size', type=int, default=286, help='scale images to this size')
     # parser.add_argument('--crop_size', type=int, default=256, help='then crop to this size')
-    create_patches(dir_src = './assets/forms', dir_out = './assets-gen/patches/forms')
+    # create_patches(dir_src = './assets/forms', dir_out = './assets-gen/patches/forms')
+    create_patches(dir_src = './assets-private', dir_out = '/home/greg/dev/pytorch-CycleGAN-and-pix2pix/datasets/eval/0001')
