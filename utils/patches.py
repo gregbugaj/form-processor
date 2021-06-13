@@ -1,9 +1,8 @@
 
-from resize_image import resize_image
+from .resize_image import resize_image
 import numpy as np
 import matplotlib.pyplot as plt
 from numpy.core.fromnumeric import size
-
 import cv2
 
 
@@ -178,8 +177,6 @@ def get_patches_2(img_arr, size_h=None, stride_h=None, size_w=None, stride_w=Non
             adj_h = stride_h * (h // stride_h + 1)
 
         if adj_w != w or adj_h != h:
-            print(adj_w)
-            print(adj_h)
             img_arr = resize_image(img_arr, (adj_w, adj_h), color=(255, 255, 255))
             
     if size_w % stride_w != 0:
