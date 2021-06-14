@@ -9,6 +9,7 @@ import random
 import glob
 
 from resize_image import resize_image
+from split_dir import split_dir
 
 def imwrite(path, img):
     try:
@@ -61,11 +62,11 @@ def augment_image(img, mask, pts, count):
         # )),
 
         sometimes(iaa.Affine(
-            shear=(-2, 2),
+            shear=(-1, 1),
             cval=(255),
         )),
 
-        sometimes(iaa.Rotate((-2, 2), cval=(255)))
+        sometimes(iaa.Rotate((-1, 1), cval=(255)))
 
         # iaa.CropAndPad(
         #     percent=(-0.07, 0.2),
@@ -104,7 +105,6 @@ def augment_image(img, mask, pts, count):
 
     return images, masks
 
-
 def create_mask(dir_src, dir_dest, cvat_annotation_file, remap_dir):
     print("dir_src         = {}".format(dir_src))
     print("dir_dest        = {}".format(dir_dest))
@@ -126,10 +126,6 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file, remap_dir):
     # extract color map
     # h = input('Enter hex: ').lstrip('#')
     # print('RGB =', tuple(int(h[i:i+2], 16) for i in (0, 2, 4)))
-
-    # <name>HCFA01</name>
-    # <color>#2900f8</color>
-
     colormap=dict()
     # colormap['HCFA21'] = (0, 255, 0, 150)
     for element in xmlTree.findall("meta/task/labels/label"):
@@ -143,15 +139,16 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file, remap_dir):
         # print()
 
     index = 0 
+
     for element in xmlTree.findall("image"):
         name = element.attrib['name']
         mappped_images = element.attrib['mapped_images']
-        print(mappped_images)
         polygons = element.findall("polygon")
         boxes = element.findall("box")
+        filename = name.split('/')[-1]
+
         points = []
         colors = []
-        filename = name.split('/')[-1]
 
         print("pol, box = {}, {}".format(len(polygons), len(boxes)))
         if len(boxes) > 0:
@@ -189,28 +186,27 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file, remap_dir):
 
         for filename in mappped_images.split(',') :
             data['ds'].append({'name': filename, 'points': points, 'color':colors, 'mapped':0}) 
+
         index = index+1
 
-    filenames = os.listdir(dir_src)
-
     print('Total annotations : %s '% (len(data['ds'])))
-    print('Total files : %s '% (len(filenames)))
-    
     rsize = (512, 512)
-
+    
     for row in data['ds']:
-        print(row)
         filename = row['name']
         points_set = row['points']
         color_set = row['color']
         mapped = row['mapped']
 
         if mapped == 1:
-            parts = element.attrib['name'].split('.')
+            parts = filename.split('.')
             name = '.'.join(parts[:-1])
             img_dir = os.path.join(remap_dir, name)
             dir_src = img_dir
-            filenames = os.listdir(dir_src)
+        
+        filenames = os.listdir(dir_src)
+        path = os.path.join(dir_src, filename)
+        print(path)
 
         if filename in filenames:
             path = os.path.join(dir_src, filename)
@@ -230,7 +226,6 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file, remap_dir):
                 # Polygon corner points coordinates 
                 pts = np.array(points, np.int32)
                 pts = pts.reshape((-1, 1, 2))
-
                 
                 mask_img = cv2.fillPoly(mask_img, [pts], color_display) # white mask
                 mask_img = cv2.polylines(mask_img, [pts],  isClosed, (0,0,0), thickness) 
@@ -242,18 +237,11 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file, remap_dir):
                 # imwrite(path_dest_mask, mask_img)
 
                 index=index+1                
-            # # overlay_img = fourChannels(overlay_img)
-
             # Following line overlays transparent over the image
             overlay_img = cv2.addWeighted(overlay_img, alpha, img.copy(), 1 - alpha, 0)
             
             mask_img = cv2.resize(mask_img, rsize)
             img = cv2.resize(img, rsize)
-
-            # mask_img = resize_image(mask_img, rsize)
-            # img = resize_image(img, rsize)
-            
-            # overlay_img = resize_image(overlay_img, rsize)
 
             path_dest_mask = os.path.join(dir_dest_mask,  "{}.jpg".format(filename.split('.')[0]))
             path_dest_img = os.path.join(dir_dest_image, "{}.jpg".format(filename.split('.')[0]))
@@ -267,9 +255,10 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file, remap_dir):
             aug_images, aug_masks = augment_image(img, mask_img, pts, 2)
 
             assert len(aug_images) == len(aug_masks)
-            # Add originals
-            aug_images.append(img)
-            aug_masks.append(mask_img)
+
+            # # Add originals
+            # aug_images.append(img)
+            # aug_masks.append(mask_img)
 
             index = 0
             for a_i, a_m in zip(aug_images, aug_masks):
@@ -277,13 +266,11 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file, remap_dir):
                 mask_img = a_m
                 path_dest_mask = os.path.join(dir_dest_mask,  "{}_{}.jpg".format(filename.split('.')[0], index))
                 path_dest_img = os.path.join(dir_dest_image, "{}_{}.jpg".format(filename.split('.')[0], index))
-                path_dest_overlay = os.path.join(dir_dest_overlay, "{}_{}.png".format(filename.split('.')[0], index))
 
                 imwrite(path_dest_mask, mask_img)
                 imwrite(path_dest_img, img)
-                imwrite(path_dest_overlay, overlay_img)
-
                 index = index + 1
+                
 
 def remap(dir_src, dir_dest, cvat_annotation_file, remap_dir):
     print('Remaping XML annotations to image')
@@ -305,7 +292,6 @@ def remap(dir_src, dir_dest, cvat_annotation_file, remap_dir):
             names = [img.split('/')[-1] for img in found_images]
             element.set('mapped_images', ','.join(names))
 
-
     remap_file = os.path.join(dir_src, 'remap.xml')
     print(remap_file)
     with open(remap_file, 'wb') as f:
@@ -313,19 +299,21 @@ def remap(dir_src, dir_dest, cvat_annotation_file, remap_dir):
         
     print(xmlTree)
 if __name__ == '__main__':
-
     root_src = '../assets-private/cvat/task_3100-3199-2021_05_26_23_59_41-cvat'
     # root_src = '../assets-private/cvat/task_3200-3299-2021_05_27_00_43_52-cvat'
     # root_src = '../assets-private/cvat/task_3300-3399-2021_05_27_14_23_55-cvat' ## TEST SET
     # root_src = '../assets-private/cvat/task_3400-3499-2021_05_27_14_28_26-cvat'
-    root_src = '../assets-private/cvat/task_3000-3099-2021_06_02_21_43_46-cvat-ALL'
-    root_src = 'e'
-
+    root_src = '../assets-private/cvat/task_redactedAllFields'
 
     dir_src = os.path.join(root_src, 'images')
     dir_dest  = os.path.join(root_src, 'output')
+    dir_dest_split  = os.path.join(root_src, 'output_split')
     cvat_annotation_file=os.path.join(root_src, 'annotations.xml') 
     cvat_annotation_file=os.path.join(root_src, 'remap.xml') 
     remap_src = os.path.join(root_src, 'remap')
+
     # remap(root_src , dir_dest, cvat_annotation_file, remap_src)
-    create_mask(dir_src , dir_dest, cvat_annotation_file, remap_src)
+    create_mask(dir_src, dir_dest, cvat_annotation_file, remap_src)
+    split_dir(dir_dest, dir_dest_split)
+
+# python ./datasets/prepare_patches_dataset.py  --input_dir ./datasets/hicfa_form --output_dir ./datasets/hicfa_form/ready
