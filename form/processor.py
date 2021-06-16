@@ -28,6 +28,7 @@ def get_debug_image(h, w, img):
     ##cv2.line(debug_img, (0, h), (debug_img.shape[1], h), (255, 0, 0), 1)
     return debug_img
     
+
 def process(img_path, dir_out, network_parameters):
     """
         Process document

@@ -13,6 +13,7 @@ from split_dir import split_dir
 
 def imwrite(path, img):
     try:
+        img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         cv2.imwrite(path, img)
     except Exception as ident:
         print(ident)
@@ -82,11 +83,11 @@ def augment_image(img, mask, pts, count):
         # gaussian blur (sigma between 0 and 3.0),
         # average/uniform blur (kernel size between 2x2 and 7x7)
         # median blur (kernel size between 1x1 and 5x5).
-    #    sometimes(iaa.OneOf([
-    #         iaa.GaussianBlur((0, 2.0)),
-    #         iaa.AverageBlur(k=(2, 7)),
-    #         iaa.MedianBlur(k=(1, 3)),
-    #     ])),
+       sometimes(iaa.OneOf([
+            iaa.GaussianBlur((0, 2.0)),
+            iaa.AverageBlur(k=(2, 7)),
+            iaa.MedianBlur(k=(1, 3)),
+        ])),
 
     ], random_order=True)
 
@@ -140,13 +141,43 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file, remap_dir):
 
     index = 0 
 
+    accepted = dict()
+    accepted["HCFA02"] = True
+    accepted["HCFA05_ADDRESS"] = True
+    accepted["HCFA05_CITY"] = True
+    accepted["HCFA05_ZIP"] = True
+    accepted["HCFA05_PHONE"] = True
+    accepted["HCFA05_STATE"] = True
+
+    accepted["HCFA21"] = True
+    accepted["HCFA24"] = True
+    accepted["HCFA33_BILLING"] = True
+
+    def rgb(hex):
+        h=hex.replace('#','')
+        return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
+
+    print(colormap)
+    colormap = dict()
+    # http://medialab.github.io/iwanthue/
+    colormap["HCFA02"] = rgb('#7fd99d')
+    colormap["HCFA05_ADDRESS"] = rgb('#a96df8')
+    colormap["HCFA05_CITY"] = rgb('#ff614e') 
+    colormap["HCFA05_STATE"] =rgb('#016aa4')
+    colormap["HCFA05_ZIP"] =  rgb('#FFFF00')
+    colormap["HCFA05_PHONE"] =rgb('#99624a')
+
+    colormap["HCFA21"] =rgb('#a1d743')
+    colormap["HCFA24"] =rgb('#dc199b')
+    colormap["HCFA33_BILLING"] =rgb('#bf6900')
+
     for element in xmlTree.findall("image"):
         name = element.attrib['name']
         mappped_images = element.attrib['mapped_images']
         polygons = element.findall("polygon")
         boxes = element.findall("box")
         filename = name.split('/')[-1]
-
+    
         points = []
         colors = []
 
@@ -167,6 +198,8 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file, remap_dir):
 
                     print('filename = {} label = {}'.format(filename, label))
                     pts = ['{},{}'.format(xtl, ytl), '{},{}'.format(xtr, ytr), '{},{}'.format(xbr, ybr), '{},{}'.format(xbl, ybl)]
+                    if label not in accepted:
+                        continue
                     points.append(pts)
                     colors.append(colormap[label])
                     break
@@ -179,9 +212,11 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file, remap_dir):
             if strict and size > 0 and size != 4:
                 raise ValueError("Expected 4 point got : %s " %(size))
             if size  == 4:
+                if label not in accepted:
+                    continue
                 points.append(pts)
                 colors.append(colormap[label])
-        
+
         data['ds'].append({'name': filename, 'points': points, 'color':colors, 'mapped':1}) 
 
         for filename in mappped_images.split(',') :
@@ -190,7 +225,7 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file, remap_dir):
         index = index+1
 
     print('Total annotations : %s '% (len(data['ds'])))
-    rsize = (512, 512)
+    rsize = (1024, 1024)
     
     for row in data['ds']:
         filename = row['name']
@@ -228,7 +263,7 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file, remap_dir):
                 pts = pts.reshape((-1, 1, 2))
                 
                 mask_img = cv2.fillPoly(mask_img, [pts], color_display) # white mask
-                mask_img = cv2.polylines(mask_img, [pts],  isClosed, (0,0,0), thickness) 
+                # mask_img = cv2.polylines(mask_img, [pts],  isClosed, (0,0,0), thickness) 
 
                 overlay_img = cv2.polylines(overlay_img, [pts],  isClosed, color_display, thickness) 
                 overlay_img = cv2.fillPoly(overlay_img, [pts], color_display) # white mask
@@ -252,7 +287,7 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file, remap_dir):
             imwrite(path_dest_overlay, overlay_img)
 
             # Apply transformations to the image
-            aug_images, aug_masks = augment_image(img, mask_img, pts, 2)
+            aug_images, aug_masks = augment_image(img, mask_img, pts, 5)
 
             assert len(aug_images) == len(aug_masks)
 
