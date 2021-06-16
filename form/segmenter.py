@@ -50,14 +50,15 @@ class FormSegmeneter:
         hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         viewImage(hsv, 'HSV') 
 
-        if True:
+        if False:
             mask = cv2.inRange(hsv,(10, 100, 20), (25, 255, 255))
-            cv2.imshow("orange", mask)
+            cv2.imshow("color", mask)
             cv2.waitKey()
             cv2.destroyAllWindows()
 
         # return
         # img = cv2.imread(img_path)
+        # causes issues due to conversion
         # img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         img = apply_filter(img)
         viewImage(img, "Source Image") 
@@ -72,19 +73,36 @@ class FormSegmeneter:
 
         # Orange (10, 100, 20), (25, 255, 255)
         #  PURPLE (hMin = 111 , sMin = 101, vMin = 16), (hMax = 138 , sMax = 255, vMax = 255)
-        low_color = np.array([10, 100, 20],np.uint8)
-        high_color = np.array([25, 255, 255],np.uint8)
+        colorz = [
+                    [[0, 240, 124], [25, 255, 255]], # ORANGE
+                    [[111, 180, 90], [179, 255, 255]]  # PINK
+                ]
+
+        low_color = np.array([111, 180, 90],np.uint8)
+        high_color = np.array([179, 255, 255],np.uint8)
         
         mask = cv2.inRange(hsv, low_color, high_color)
-        # mask = cv2.inRange(hsv, (10, 100, 20), (25, 255, 255))
-        # mask = cv2.inRange(hsv, (135, 205, 198), (25, 255, 255))
-        # mask = cv2.inRange(hsv,(10, 100, 20), (25, 255, 255))
         viewImage(mask, 'mask')
 
-        # hsv[curr_mask > 0] = ([75,255,200])
+        # hsv[mask > 0] = ([75,255,200])
         # viewImage(hsv, 'hsv_img')
+
         result_white = cv2.bitwise_and(img, img, mask=mask)
         viewImage(result_white, 'result_white') ## 2
+
+        ## converting the HSV image to Gray inorder to be able to apply 
+        ## contouring
+        # RGB_again = cv2.cvtColor(hsv, cv2.COLOR_HSV2RGB)
+        # gray = cv2.cvtColor(RGB_again, cv2.COLOR_RGB2GRAY)
+        # viewImage(gray, 'Gray') 
+
+        # ret, threshold = cv2.threshold(gray, 90, 255, 0)
+        # viewImage(threshold, 'Threashold') 
+
+        # contours, hierarchy =  cv2.findContours(threshold,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
+        # cv2.drawContours(img, contours, -1, (0, 0, 255), 3)
+        # viewImage(img,'Contours')
+        
 
 def processLEAF(self, img_path):
     "Process form"

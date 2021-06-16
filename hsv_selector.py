@@ -5,7 +5,7 @@ def nothing(x):
     pass
 
 # Load image
-img_path ='./assets/forms-seg/001_fake_green_256.jpg'
+img_path ='./assets/forms-seg/001_fake.png'
 image = cv2.imread(img_path)
 
 # Create a window

@@ -20,8 +20,7 @@ def parse_args():
 if __name__ == '__main__':
     args = parse_args()
     args.network_param = './models/form_pix2pix/latest_net_G.pth'
-
-    img_path ='./assets/forms-seg/001_fake.jpg'
+    img_path ='./assets/forms-seg/001_fake.png'
     # img_path ='./assets/forms-seg/baseline.jpg'
     # img_path ='./assets/forms-seg/001_fake_green.jpg'
     
