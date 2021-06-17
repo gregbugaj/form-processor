@@ -160,6 +160,8 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file, remap_dir):
     print(colormap)
     colormap = dict()
     # http://medialab.github.io/iwanthue/
+
+    
     colormap["HCFA02"] = rgb('#7fd99d')
     colormap["HCFA05_ADDRESS"] = rgb('#a96df8')
     colormap["HCFA05_CITY"] = rgb('#ff614e') 

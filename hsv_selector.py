@@ -9,7 +9,8 @@ img_path ='./assets/forms-seg/001_fake.png'
 image = cv2.imread(img_path)
 
 # Create a window
-cv2.namedWindow('image')
+cv2.namedWindow('image', cv2.WINDOW_FREERATIO)
+
 
 # Create trackbars for color change
 # Hue is from 0-179 for Opencv
