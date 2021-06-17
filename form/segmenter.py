@@ -490,6 +490,8 @@ if __name__ == '__main__':
     # rgb_2_hsv(62.9, 84.2, 26.3)
 
     img_path ='/tmp/hicfa/PID_10_5_0_2787.original.redacted.tif'
+    img_path ='/tmp/hicfa/PID_10_5_0_94371.tif'
+    
     segmenter = FormSegmeneter(work_dir='/tmp/form-segmentation', network="")
     
     fragments = segmenter.process(img_path)
