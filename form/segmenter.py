@@ -6,13 +6,12 @@ from matplotlib import colors
 from matplotlib.colors import hsv_to_rgb, rgb_to_hsv
 from PIL import Image
 import numpy as np
-
+from shutil import copyfile
 # Add parent to the search path so we can reference the module here without throwing and exception 
 import os, sys
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
 from utils.nms import nms
 
-# from pix2pix.test_segment import execute
 from pix2pix.options.test_options import TestOptions
 from pix2pix.data import create_dataset
 from pix2pix.models import create_model
@@ -67,10 +66,13 @@ def imwrite(path, img):
     except Exception as ident:
         print(ident)
 
+def ensure_exists(dir):
+    if not os.path.exists(dir):
+        os.makedirs(dir)        
 class FormSegmeneter:
-    def __init__(self, network):
+    def __init__(self, work_dir, network):
         self.network = network
-        print("Initializing pix2pix network")
+        self.work_dir = work_dir
         self.opt, self.model = self.__setup()
 
     def __setup(self):
@@ -99,7 +101,7 @@ class FormSegmeneter:
 
         # hard-code some parameters for test
         opt.eval = False   # test code only supports num_threads = 0
-        opt.num_threads = 0   # test code only supports num_threads = 0
+        opt.num_threads = 0   
         opt.batch_size = 1    # test code only supports batch_size = 1
         opt.serial_batches = True  # disable data shuffling; comment this line if results on randomly chosen images are needed.
         opt.no_flip = True    # no flip; comment this line if results on flipped images are needed.
@@ -108,7 +110,6 @@ class FormSegmeneter:
         print(opt)
         model = create_model(opt)      # create a model given opt.model and other options
         model.setup(opt)               # regular setup: load and print networks; create schedulers
-        model.eval()
         self.model = model
         return opt, model
 
@@ -122,11 +123,7 @@ class FormSegmeneter:
         """
             Segment fragment 
         """
-
         print('layerId / id {} : {}'.format(layerId, fieldId))
-        # id = hsv_color_ranges[val]
-        # print(id)
-        print('Fragment')
         colid = fieldId
         low_color = np.array(hsv_color_ranges[colid][0],np.uint8)
         high_color = np.array(hsv_color_ranges[colid][1],np.uint8)
@@ -151,13 +148,12 @@ class FormSegmeneter:
         # cv2.drawContours(img, contours, -1, (255, 255, 0), 2)
         # viewImage(img,'Contours')
 
-        print("Contours len = " + str(len(contours)))
         font = cv2.FONT_HERSHEY_SIMPLEX
-
         all_boxes = []
         cls_scores = []
         all_pts = []
         drift = 5
+
         for cnt in contours:
             # (center(x, y), (width, height), angle of rotation)
             (x, y), (width, height), angle = rect = cv2.minAreaRect(cnt)
@@ -210,21 +206,38 @@ class FormSegmeneter:
         """
         if not os.path.exists(img_path):
             raise Exception('File not found : {}'.format(img_path))
-            
-        img = cv2.imread(img_path)
+
+        name=img_path.split('/')[-1]
+        work_dir = os.path.join(self.work_dir, name, 'work')
+        debug_dir = os.path.join(self.work_dir, name, 'debug')
+        dataroot_dir = os.path.join(self.work_dir, name, 'dataroot')
+        dst_file_name = os.path.join(dataroot_dir, name)
+
+        ensure_exists(self.work_dir)
+        ensure_exists(work_dir)
+        ensure_exists(debug_dir)
+        ensure_exists(dataroot_dir)
+
+        print(work_dir)
+        print(dataroot_dir)
+        print(debug_dir)
+
+        copyfile(img_path, dst_file_name)
+        img = cv2.imread(dst_file_name)
+        
         model = self.model
         opt = self.opt
-        opt.dataroot='/tmp/hicfa'
+        opt.dataroot= dataroot_dir
         dataset = create_dataset(opt)  # create a dataset given opt.dataset_mode and other options
+
+        image_dir = work_dir
+        name = 'segm'
 
         for i, data in enumerate(dataset):
             model.set_input(data)  # unpack data from data loader
             model.test()           # run inference
             visuals = model.get_current_visuals()  # get image results
             img_path = model.get_image_paths()     # get image paths
-
-            name = 'segm'
-            image_dir = '/tmp/hicfa-segm'
 
             # Debug 
             if True :
@@ -233,14 +246,13 @@ class FormSegmeneter:
                     # Tensor is in RGB format OpenCV requires BGR
                     image_numpy = cv2.cvtColor(image_numpy, cv2.COLOR_RGB2BGR)
                     image_name = '%s_%s.png' % (name, label)
-                    save_path = os.path.join(image_dir, image_name)                   
+                    save_path = os.path.join(debug_dir, image_name)                   
                     print(save_path)
                     imwrite(save_path, image_numpy)
                     viewImage(image_numpy, 'Tensor Image') 
 
                     # image_pil = Image.fromarray(image_numpy)
                     # image_pil.save(save_path)
-
 
             shape=img.shape
 
@@ -270,9 +282,9 @@ class FormSegmeneter:
             viewImage(overlay_img, 'Overlay') 
 
             save_path_overlay = os.path.join(image_dir, "%s.png" % 'overlay')
+            imwrite(save_path_overlay, overlay_img)
 
         raise Exception('EE')
-
         viewImage(img, 'Source Image') 
 
         font = cv2.FONT_HERSHEY_SIMPLEX
@@ -493,5 +505,5 @@ if __name__ == '__main__':
     # img_path ='./assets/forms-seg/001_fake_green.jpg'
     
     img_path ='/tmp/hicfa/PID_10_5_0_2787.original.redacted.tif'
-    segmenter = FormSegmeneter(network="")
+    segmenter = FormSegmeneter(work_dir='/tmp/form-segmentation', network="")
     segmenter.process(img_path)  
