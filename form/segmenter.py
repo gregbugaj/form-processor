@@ -75,6 +75,7 @@ class FormSegmeneter:
         """
             Segment fragment 
         """
+
         print('layerId / id {} : {}'.format(layerId, fieldId))
         # id = hsv_color_ranges[val]
         # print(id)
@@ -127,7 +128,15 @@ class FormSegmeneter:
             area = M['m00']
             # print(area)
             if area > 50:
-                all_boxes.append([x ,y, width, height])
+                x = box[0][0] # 1
+                y = box[0][1] # 46
+                width = box[2][0] - box[0][0] #370
+                height = box[3][1] - box[0][1] # 42
+                bb = [x ,y, width, height]
+                # print('########### BOX : {}'.format(box))
+                # print('########### BB  : {}'.format(bb))
+
+                all_boxes.append(bb)
                 all_pts.append(box)
                 cls_scores.append(area)
 
@@ -149,9 +158,7 @@ class FormSegmeneter:
                 print(e)
             viewImage(img, 'final')
 
-        non_scored_box = all_pts[idx][:4]
-
-        print('################ : {}'.format(non_scored_box))
+        non_scored_box = all_boxes[idx][:4].astype('int32')  
         return box, non_scored_box
 
     def process(self, img_path):
@@ -159,7 +166,12 @@ class FormSegmeneter:
             Form segmentation 
         """
 
+        if not os.path.exists(img_path):
+            raise Exception('File not found : {}'.format(img_path))
+            
         img = cv2.imread(img_path)
+        viewImage(img, 'Source Image') 
+
         font = cv2.FONT_HERSHEY_SIMPLEX
         segmask = self.__extract_segmenation_mask(img)
 
@@ -192,10 +204,6 @@ class FormSegmeneter:
         # (hMin = 112 , sMin = 38, vMin = 154), (hMax = 140 , sMax = 155, vMax = 255) # Purple
         # (hMin = 123 , sMin = 99, vMin = 206), (hMax = 139 , sMax = 255, vMax = 255)
 
-        colid = 8
-        low_color = np.array(hsv_color_ranges[colid][0],np.uint8)
-        high_color = np.array(hsv_color_ranges[colid][1],np.uint8)
-
         layers = {
             'layer_1' : {
                 'HCFA02': 0, 
@@ -221,15 +229,9 @@ class FormSegmeneter:
                     'layer':lkey,
                     'key':key,
                     'id':val,
-                    'box':    np.array(non_scored_box,np.uint8)
+                    'box': non_scored_box 
                 }
                 fragments.append(frag)
-
-                print('****************')
-                print(non_scored_box)
-
-                print(box)
-                print('****************')
                 try:
                     cv2.drawContours(segmask, [box], -1, (255, 0, 0), 2, 1)
                     org = [box[3][0]+5, box[3][1]-5]
@@ -237,8 +239,7 @@ class FormSegmeneter:
                     _=cv2.putText(segmask, label, org, font, .4, (0, 0, 0), 1, cv2.LINE_AA)
                 except Exception as e:
                     print(e)
-
-                break
+                # break
 
         viewImage(segmask, 'final')
         print(fragments)
@@ -249,20 +250,22 @@ class FormSegmeneter:
             print(frag)
             key = frag['key']
             _id = frag['id']
-            box = frag['box'] # xywh
+            box = frag['box'] # x,y,w,h
             print(box)
-
-            # snip = img[box[1]:box[3], box[0]: box[2]]
-            # P1 = Top LEft, P2 = Bottom Right
-
-            print(img.shape)
-            snip = img[box[0]:box[1], :]
+            x = box[0]
+            y = box[1]
+            w = box[2] 
+            h = box[3]
+            snip = img[y:y+h, x:x+w]
 
             output_filename='%s-%d.png' % (key, _id)
             print('File written : %s' % (output_filename))
             imwrite(os.path.join(dir_out, output_filename), snip)
-
         return 
+
+        colid = 8
+        low_color = np.array(hsv_color_ranges[colid][0],np.uint8)
+        high_color = np.array(hsv_color_ranges[colid][1],np.uint8)
 
         mask = cv2.inRange(hsv, low_color, high_color)
         viewImage(mask, 'mask')
@@ -382,7 +385,7 @@ def processLEAF(self, img_path):
 
 
 if __name__ == '__main__':
-    img_path ='./assets/forms-seg/001_fake.png'
+    img_path ='../assets/forms-seg/001_fake.png'
     # img_path ='./assets/forms-seg/baseline.jpg'
     # img_path ='./assets/forms-seg/001_fake_green.jpg'
     
