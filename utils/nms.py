@@ -32,7 +32,6 @@ def nms(dets, thresh):
     return keep
 
 
-
 # https://towardsdatascience.com/non-maximum-suppression-nms-93ce178e177c
 # Malisiewicz et al.
 

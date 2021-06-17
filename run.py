@@ -25,7 +25,7 @@ if __name__ == '__main__':
     # img_path ='./assets/forms-seg/001_fake_green.jpg'
     
     segmenter = FormSegmeneter(network="")
-    segmenter.process(img_path)    
+    fragments = segmenter.process(img_path)    
 
     if False:
         # dev

@@ -6,6 +6,7 @@ def nothing(x):
 
 # Load image
 img_path ='./assets/forms-seg/001_fake.png'
+img_path ='/tmp/form-segmentation/PID_10_5_0_2787.original.redacted.tif/work/resized_mask.png'
 image = cv2.imread(img_path)
 
 # Create a window

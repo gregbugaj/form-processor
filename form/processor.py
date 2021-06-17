@@ -69,41 +69,8 @@ def process(img_path, dir_out, network_parameters):
     out_image = reconstruct_from_patches_2(patches, org_img_size, size_h=size_h, stride_h=stride_h, size_w=size_w, stride_w=stride_w)[0]
     imwrite(os.path.join(dir_out, "recon_{}.png".format(name)), out_image)
     
-    if True:
-        return
 
-    prefix = "cleaned"
-    output_filename=""
-
-    # net = load_network(network_parameters = network_parameters, ctx = ctx)
     
-    try:
-        patches_list = []
-        for i, patch in enumerate(tqdm(patches)):
-            # print('I = %s' % (i))
-            src, mask = recognize_patch(net, ctx, patch, shape = (size_h, size_w))
-            mask = 255 - mask            
-
-            debug = get_debug_image(size_h , size_w, src, mask)            
-            imwrite(os.path.join(dir_out, "%s.png" % (i)), debug)
-            #  expand shape from 1 channel to 3 channel
-            mask = mask[:, :, None] * np.ones(3, dtype=int)[None, None, :]
-            patches_list.append(mask)
-            
-        out_image = reconstruct_from_patches_2(np.array(patches_list), org_img_size, size_h=size_h, stride_h=stride_h, size_w=size_w, stride_w=stride_w)[0]
-        # find next available filename
-        index = 0        
-        while True:
-            output_filename =  '%s-%d.png' % (prefix, index)
-            index += 1
-            if not os.path.exists(os.path.join(dir_out, output_filename)):
-                break
-        print('File written : %s' % (output_filename))
-        imwrite(os.path.join(dir_out, output_filename), out_image)
-    except Exception as e:
-        print(e)
-
-
 def paste_fragment(overlay, fragment, pos=(0,0)):
     # You may need to convert the color.
     fragment = cv2.cvtColor(fragment, cv2.COLOR_BGR2RGB)
