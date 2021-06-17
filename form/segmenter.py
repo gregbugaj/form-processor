@@ -12,6 +12,13 @@ import os, sys
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
 from utils.nms import nms
 
+# from pix2pix.test_segment import execute
+from pix2pix.options.test_options import TestOptions
+from pix2pix.data import create_dataset
+from pix2pix.models import create_model
+from pix2pix.util.visualizer import save_images
+from pix2pix.util.util import tensor2im
+
 hsv_color_ranges = [
             [[55, 58, 0], [86, 255, 255]],     # GREEN DARK  7fd99d
             [[123, 99, 206], [140, 255, 255]], # Purple      a96df8
@@ -63,7 +70,47 @@ def imwrite(path, img):
 class FormSegmeneter:
     def __init__(self, network):
         self.network = network
-        print("Initialzed")
+        print("Initializing pix2pix network")
+        self.opt, self.model = self.__setup()
+
+    def __setup(self):
+        """
+            Model setup
+        """
+        print('Model setup complete')
+        args = [
+            '--dataroot', './data', 
+            '--name', 'hicfa_pix2pix',
+            '--model', 'test',
+            '--netG', 'unet_256',
+            '--direction', 'AtoB',
+            '--model', 'test',
+            '--dataset_mode', 'single',
+            '--gpu_id', '-1',
+            '--norm', 'batch',
+            '--load_size', '1024',
+            '--crop_size', '1024',
+            '--checkpoints_dir', '../models/checkpoints',
+        ]
+
+        opt = TestOptions().parse(args)  # get test options
+        # python test.py --dataroot ./datasets/hicfa/eval_1024 --name hicfa_pix2pix --model test 
+        # --netG unet_256 --direction AtoB --dataset_mode single --gpu_id -1 --norm batch  --load_size 1024 --crop_size 1024
+
+        # hard-code some parameters for test
+        opt.eval = False   # test code only supports num_threads = 0
+        opt.num_threads = 0   # test code only supports num_threads = 0
+        opt.batch_size = 1    # test code only supports batch_size = 1
+        opt.serial_batches = True  # disable data shuffling; comment this line if results on randomly chosen images are needed.
+        opt.no_flip = True    # no flip; comment this line if results on flipped images are needed.
+        opt.display_id = -1   # no visdom display; the test code saves the results to a HTML file.
+
+        print(opt)
+        model = create_model(opt)      # create a model given opt.model and other options
+        model.setup(opt)               # regular setup: load and print networks; create schedulers
+        model.eval()
+        self.model = model
+        return opt, model
 
     def __extract_segmenation_mask(self, img):
         """
@@ -121,20 +168,16 @@ class FormSegmeneter:
             # convert
             box = cv2.boxPoints(rect)
             box = np.int0(box)
-             
             # Calculate the moments and get area
             # Trying to filter out small pieces
             M = cv2.moments(cnt)
             area = M['m00']
-            # print(area)
             if area > 50:
-                x = box[0][0] # 1
-                y = box[0][1] # 46
-                width = box[2][0] - box[0][0] #370
-                height = box[3][1] - box[0][1] # 42
+                x = box[0][0]
+                y = box[0][1]
+                width = box[2][0] - box[0][0]
+                height = box[3][1] - box[0][1]
                 bb = [x ,y, width, height]
-                # print('########### BOX : {}'.format(box))
-                # print('########### BB  : {}'.format(bb))
 
                 all_boxes.append(bb)
                 all_pts.append(box)
@@ -165,11 +208,71 @@ class FormSegmeneter:
         """
             Form segmentation 
         """
-
         if not os.path.exists(img_path):
             raise Exception('File not found : {}'.format(img_path))
             
         img = cv2.imread(img_path)
+        model = self.model
+        opt = self.opt
+        opt.dataroot='/tmp/hicfa'
+        dataset = create_dataset(opt)  # create a dataset given opt.dataset_mode and other options
+
+        for i, data in enumerate(dataset):
+            model.set_input(data)  # unpack data from data loader
+            model.test()           # run inference
+            visuals = model.get_current_visuals()  # get image results
+            img_path = model.get_image_paths()     # get image paths
+
+            name = 'segm'
+            image_dir = '/tmp/hicfa-segm'
+
+            # Debug 
+            if True :
+                for label, im_data in visuals.items():
+                    image_numpy = tensor2im(im_data)
+                    # Tensor is in RGB format OpenCV requires BGR
+                    image_numpy = cv2.cvtColor(image_numpy, cv2.COLOR_RGB2BGR)
+                    image_name = '%s_%s.png' % (name, label)
+                    save_path = os.path.join(image_dir, image_name)                   
+                    print(save_path)
+                    imwrite(save_path, image_numpy)
+                    viewImage(image_numpy, 'Tensor Image') 
+
+                    # image_pil = Image.fromarray(image_numpy)
+                    # image_pil.save(save_path)
+
+
+            shape=img.shape
+
+            alpha = 0.5  # Transparency factor
+            h=shape[0]
+            w=shape[1]
+            overlay_img = np.ones((h, w, 3), np.uint8) * 255 # white canvas
+                           
+            label='prediction'
+            fake_im_data = visuals['fake']
+            image_numpy = tensor2im(fake_im_data)
+            # Tensor is in RGB format OpenCV requires BGR
+            image_numpy = cv2.cvtColor(image_numpy, cv2.COLOR_RGB2BGR)
+            image_name = '%s_%s.png' % (name, label)
+            save_path = os.path.join(image_dir, image_name)
+            overlay_img=image_numpy
+
+            print(image_numpy.shape)
+            print(img.shape)
+            ## testing only
+            img=cv2.resize(img, (1024,1024))
+            overlay_img = cv2.addWeighted(overlay_img, alpha, img.copy(), 1 - alpha, 0)
+            
+            print(save_path)
+            imwrite(save_path, image_numpy)
+            viewImage(image_numpy, 'Prediction image') 
+            viewImage(overlay_img, 'Overlay') 
+
+            save_path_overlay = os.path.join(image_dir, "%s.png" % 'overlay')
+
+        raise Exception('EE')
+
         viewImage(img, 'Source Image') 
 
         font = cv2.FONT_HERSHEY_SIMPLEX
@@ -235,7 +338,7 @@ class FormSegmeneter:
                 try:
                     cv2.drawContours(segmask, [box], -1, (255, 0, 0), 2, 1)
                     org = [box[3][0]+5, box[3][1]-5]
-                    label = '{label} ({id})'.format(id=colid, label=key)
+                    label = '{label} ({id})'.format(id=val, label=key)
                     _=cv2.putText(segmask, label, org, font, .4, (0, 0, 0), 1, cv2.LINE_AA)
                 except Exception as e:
                     print(e)
@@ -385,9 +488,10 @@ def processLEAF(self, img_path):
 
 
 if __name__ == '__main__':
-    img_path ='../assets/forms-seg/001_fake.png'
+    # img_path ='../assets/forms-seg/001_fake.png'
     # img_path ='./assets/forms-seg/baseline.jpg'
     # img_path ='./assets/forms-seg/001_fake_green.jpg'
     
+    img_path ='/tmp/hicfa/PID_10_5_0_2787.original.redacted.tif'
     segmenter = FormSegmeneter(network="")
     segmenter.process(img_path)  
