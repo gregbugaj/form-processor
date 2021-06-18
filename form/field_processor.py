@@ -20,6 +20,12 @@ from pix2pix.models import create_model
 from pix2pix.util.visualizer import save_images
 from pix2pix.util.util import tensor2im
  
+def viewImage(image, name='Display'):
+    cv2.namedWindow(name, cv2.WINDOW_AUTOSIZE)
+    cv2.imshow(name, image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
 def imwrite(path, img):
     try:
         cv2.imwrite(path, img)
@@ -38,13 +44,67 @@ class FieldProcessor:
         
         # models can be shared
         self.models=dict()
+        
         self.models['HCFA02'] = 'HCFA02'
+        self.models['HCFA05_ADDRESS'] = 'HCFA02' # Reused
+        self.models['HCFA05_CITY'] = 'HCFA02' # Reused
+        self.models['HCFA05_STATE'] = 'HCFA02' # Reused
+        self.models['HCFA05_ZIP'] = 'HCFA02' # Reused
+        self.models['HCFA05_PHONE'] = 'HCFA02' # Reused
 
-    def process(self, key, img_path, snippet)->None:
+        self.models['HCFA33_BILLING'] = 'box33_pix2pix'
+        self.models['HCFA21'] = 'diagnosis_code'
+
+    def postprocess(self, src):
+        """
+            post process extracted image
+
+            1) Remove leftover vertical lines
+        """
+        # Transform source image to gray if it is not already
+        if len(src.shape) != 2:
+            gray = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
+        else:
+            gray = src
+
+        # Apply adaptiveThreshold at the bitwise_not of gray
+        gray = cv2.bitwise_not(gray)
+        bw = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 15, -2)
+        # thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
+
+        # Create the images that will use to extract the horizontal and vertical lines
+        thresh = np.copy(bw)
+        image = src
+        rows = thresh.shape[0]
+        verticalsize = rows // 4
+
+        vertical_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, verticalsize))
+        detected_lines = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, vertical_kernel, iterations=2)
+
+        # image = cv2.bitwise_or(bw, detected_lines)
+        # viewImage(image, 'image')
+
+        cnts = cv2.findContours(detected_lines, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+        cnts = cnts[0] if len(cnts) == 2 else cnts[1]
+        for c in cnts:
+            cv2.drawContours(image, [c], -1, (255,255,255), 2)
+
+        # viewImage(image, 'image')
+
+        # Repair image
+        repair_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1,6))
+        result = 255 - cv2.morphologyEx(255 - image, cv2.MORPH_CLOSE, repair_kernel, iterations=1)
+        # viewImage(detected_lines, 'detected_lines')
+        # viewImage(result, 'Snippet')
+        return result
+
+    def process(self, img_path, fragment)->None:
         """
             Process data field
         """
+        key = fragment['key']
         print("Processing field : {}".format(key))
+        snippet = fragment['snippet']
         opt, model = self.__setup(key)
    
         name = img_path.split('/')[-1]
@@ -87,13 +147,16 @@ class FieldProcessor:
             image_name = '%s_%s.png' % (name, label)
             save_path = os.path.join(debug_dir, image_name)
 
+            # return self.postprocess(image_numpy)
+            return image_numpy
+
     def __setup(self, key):
         """
             Model setup
         """
         name = self.models[key]
 
-        args = [
+        args_default = [
             '--dataroot', './data', 
             '--name', name,
             '--model', 'test',
@@ -104,9 +167,24 @@ class FieldProcessor:
             '--gpu_id', '-1',
             '--norm', 'batch',
             '--preprocess', 'none',
-            '--checkpoints_dir', './models/segmenter',
+            '--checkpoints_dir', '../models/segmenter',
         ]
 
+        # override model defaults       
+        # TODO : Load config from files
+        argsmap = dict()
+        argsmap['HCFA02'] = args_default
+        argsmap['HCFA33_BILLING'] = args_default
+        argsmap['HCFA21'] = args_default
+
+        if key == 'HCFA33_BILLING' or key == 'HCFA21':
+            args_default = argsmap[key]
+            args_default.append('--norm')
+            args_default.append('instance')
+            args_default.append('--no_dropout')
+
+        print(args_default)
+        args = args_default
         opt = TestOptions().parse(args)  # get test options
         # hard-code parameters for test
         opt.eval = False   # test code only supports num_threads = 0

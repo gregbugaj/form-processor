@@ -22,6 +22,10 @@ from pix2pix.models import create_model
 from pix2pix.util.visualizer import save_images
 from pix2pix.util.util import tensor2im
  
+
+from boxes.boxes_processor import BoxProcessor
+
+
 # Don't change the order here as the field dictionary depends on it
 hsv_color_ranges = [
             [[55, 58, 0], [86, 255, 255]],      # GREEN DARK  7fd99d
@@ -80,6 +84,21 @@ def paste_fragment(overlay, fragment, pos=(0,0)):
     fragment = cv2.cvtColor(fragment, cv2.COLOR_BGR2RGB)
     fragment_pil = Image.fromarray(fragment)
     overlay.paste(fragment_pil, pos)
+
+def make_power_2(img, base, method=Image.BICUBIC):
+    ow, oh = img.size
+    h = int(round(oh / base) * base)
+    w = int(round(ow / base) * base)
+    if h == oh and w == ow:
+        return img
+         
+    print("The image size needs to be a multiple of 4. "
+              "The loaded image size was (%d, %d), so it was adjusted to "
+              "(%d, %d). This adjustment will be done to all images "
+              "whose sizes are not multiples of 4" % (ow, oh, w, h))
+
+    return img.resize((w, h), method)
+
 class FormSegmeneter:
     def __init__(self, work_dir, network):
         self.network = network
@@ -103,7 +122,7 @@ class FormSegmeneter:
             '--norm', 'batch',
             '--load_size', '1024',
             '--crop_size', '1024',
-            '--checkpoints_dir', './models/segmenter',
+            '--checkpoints_dir', '../models/segmenter',
         ]
 
         opt = TestOptions().parse(args)  # get test options
@@ -202,7 +221,6 @@ class FormSegmeneter:
         """
         print('layerId / id {} : {}'.format(layerId, fieldId))
         colid = fieldId
-        
         low_color = np.array(hsv_color_ranges[colid][0],np.uint8)
         high_color = np.array(hsv_color_ranges[colid][1],np.uint8)
         mask = cv2.inRange(hsv, low_color, high_color)
@@ -242,13 +260,11 @@ class FormSegmeneter:
         for cnt in contours:
             # (center(x, y), (width, height), angle of rotation)
             (x, y), (width, height), angle = rect = cv2.minAreaRect(cnt)
-            print(rect)
             # 90.0 deg https://theailearner.com/tag/cv2-minarearect/
             aspect_ratio = min(width, height) / max(width, height)
             # if angle < 90 - drift or angle > 90 + drift:
             #     continue
             # convert
-
             box = cv2.boxPoints(rect)
             box = np.int0(box)
             # Calculate the moments and get area
@@ -374,7 +390,12 @@ class FormSegmeneter:
                 # it is possible to get bad segmask
                 if box is None:
                     continue
-                snippet= img[box[1]:box[1]+box[3], box[0]:box[0]+box[2]]
+                snippet = img[box[1]:box[1]+box[3], box[0]:box[0]+box[2]]
+                
+                pil_snippet = Image.fromarray(snippet)
+                pil_snippet = make_power_2(pil_snippet, base=4, method=Image.BICUBIC)
+                cv_snip = np.array(pil_snippet)                
+                snippet = cv2.cvtColor(cv_snip, cv2.COLOR_RGB2BGR)# convert RGB to BGR
                 frag = {
                     'layer':lkey,
                     'key':key,
@@ -382,9 +403,8 @@ class FormSegmeneter:
                     'box': box,
                     'snippet':snippet
                 }
-
+                
                 fragments[key] = frag
-
                 try:
                     cv2.drawContours(segmask, [box_rect], -1, (255, 0, 0), 2, 1)
                     org = [box_rect[3][0]+5, box_rect[3][1]-5]
@@ -419,89 +439,73 @@ class FormSegmeneter:
         
         return fragments
 
-def processLEAF(self, img_path):
-    "Process form"
-    img = cv2.imread(img_path)
-    img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    img = apply_filter(img)
-    viewImage(img, "Source Image") 
+    def build_clean_fragments(self, img_path, fragments):
+        """
+            Build clean fragments document
+            This is primarly for debug purposed
+        """
+        print('Building clean fragments')
+        img = cv2.imread(img_path)
+        shape = img.shape
+        overlay = Image.new('RGB', (shape[1], shape[0]), color=(255,255,255,0))
 
-    print("Processing segmentation")
-    h = img.shape[0]
-    w = img.shape[1]
+        # process extracted fragments
+        for _key in fragments.keys():
+            frag = fragments[_key]
+            key = frag['key']
+            _id = frag['id']
+            box = frag['box'] # x,y,w,h
+            snippet = frag['snippet'] # Cliped snipped
+            if 'clean' not in frag:
+                continue
 
-    print("{} : {}".format(h, w))
-    hsv_img = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
-    viewImage(hsv_img, 'HSV') 
+            clean = frag['clean'] # Cleaned snipped
+            if box is None:
+                continue
 
-    if False:
-        pixel_colors = img.reshape((np.shape(img)[0]*np.shape(img)[1], 3))
-        norm = colors.Normalize(vmin=-1.,vmax=1.)
-        norm.autoscale(pixel_colors)
-        pixel_colors = norm(pixel_colors).tolist()
+            paste_fragment(overlay, clean, (box[0], box[1]))
 
-        hsv_seg = cv2.cvtColor(img, cv2.COLOR_RGB2HSV)
-        h, s, v = cv2.split(hsv_seg)
-        fig = plt.figure()
-        axis = fig.add_subplot(1, 1, 1, projection="3d")
+        tm = time.time_ns()
+        name = img_path.split('/')[-1]
+        debug_dir = os.path.join(self.work_dir, name, 'debug')
+        savepath = os.path.join(debug_dir, "%s-%s.jpg" % ('clean_overlay' , tm))
+        overlay.save(savepath, format='JPEG', subsampling=0, quality=100)
 
-        axis.scatter(h.flatten(), s.flatten(), v.flatten(), facecolors=pixel_colors, marker=".")
-        axis.set_xlabel("Hue")
-        axis.set_ylabel("Saturation")
-        axis.set_zlabel("Value")
-        plt.show()
-        
-    ## getting green HSV color representation
-    green = np.uint8([[[26, 84, 63]]])
-    green_hsv = cv2.cvtColor(green, cv2.COLOR_BGR2HSV)
-    print(green_hsv)
+def segment(img_path):
+    print('Segment')
+    src = '/tmp/form-segmentation/PID_10_5_0_113174.tif/fields_debug/HCFA02/segmenation_fake.png'
+    src = '/tmp/form-segmentation/PID_10_5_0_113174.tif/fields_debug/HCFA05_ADDRESS/segmenation_fake.png'
+    src = '/tmp/form-segmentation/PID_10_5_0_113174.tif/fields_debug/HCFA05_PHONE/segmenation_fake.png'
+    src = '/tmp/form-segmentation/PID_10_5_0_113174.tif/fields_debug/HCFA05_STATE/segmenation_fake.png'
+    # snip = cv2.imread(src)
 
-    low_color = np.array([45 , 100, 50] )
-    high_color = np.array([75, 255, 255])
+    # boxer = BoxProcessor()
+    # boxer.process(snip)
 
-    curr_mask = cv2.inRange(hsv_img, low_color, high_color)
-    viewImage(curr_mask, 'curr_mask')
-
-    hsv_img[curr_mask > 0] = ([75,255,200])
-    viewImage(hsv_img, 'hsv_img')
-
-    result_white = cv2.bitwise_and(img, img, mask=curr_mask)
-    viewImage(result_white, 'result_white') ## 2
-
-    ## converting the HSV image to Gray inorder to be able to apply 
-    ## contouring
-    RGB_again = cv2.cvtColor(hsv_img, cv2.COLOR_HSV2RGB)
-    gray = cv2.cvtColor(RGB_again, cv2.COLOR_RGB2GRAY)
-    viewImage(gray, 'Gray') 
-
-    ret, threshold = cv2.threshold(gray, 90, 255, 0)
-    viewImage(threshold, 'Threashold') 
-
-    contours, hierarchy =  cv2.findContours(threshold,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
-    cv2.drawContours(img, contours, -1, (0, 0, 255), 3)
-    viewImage(img,'Contours') 
-
-
-if __name__ == '__main__':
-    # img_path ='../assets/forms-seg/001_fake.png'
-    # img_path ='./assets/forms-seg/baseline.jpg'
-    # img_path ='./assets/forms-seg/001_fake_green.jpg'
-
-    # rgb_2_hsv(62.9, 84.2, 26.3)
-
-    img_path ='/tmp/hicfa/PID_10_5_0_2787.original.redacted.tif'
-    img_path ='/tmp/hicfa/PID_10_5_0_94371.tif'
-    
     segmenter = FormSegmeneter(work_dir='/tmp/form-segmentation', network="")
-    
     fragments = segmenter.process(img_path)
-    key = 'HCFA02'
-    frag = fragments[key]
-    snippet = frag['snippet']
 
     fp = FieldProcessor(work_dir='/tmp/form-segmentation')
-    fp.process(key, img_path, snippet)
+    fragments['HCFA02']['clean'] = fp.process(img_path,fragments['HCFA02'])
+    fragments['HCFA05_ADDRESS']['clean'] = fp.process(img_path,fragments['HCFA05_ADDRESS'])
+    fragments['HCFA05_CITY']['clean'] = fp.process(img_path,fragments['HCFA05_CITY'])
+    fragments['HCFA05_STATE']['clean'] = fp.process(img_path,fragments['HCFA05_STATE'])
+    fragments['HCFA05_ZIP']['clean'] = fp.process(img_path,fragments['HCFA05_ZIP'])
+    fragments['HCFA05_PHONE']['clean'] = fp.process(img_path,fragments['HCFA05_PHONE'])
+    fragments['HCFA33_BILLING']['clean'] = fp.process(img_path,fragments['HCFA33_BILLING'])
+    fragments['HCFA21']['clean'] = fp.process(img_path,fragments['HCFA21'])
+    
+    clean_img=segmenter.build_clean_fragments(img_path, fragments)
 
-    print(frag)
+if __name__ == '__main__':
+
+    img_path ='/tmp/hicfa/PID_10_5_0_2787.original.redacted.tif'
+    img_path ='/tmp/hicfa/PID_10_5_0_113174.tif'
+    img_path ='/tmp/hicfa/PID_10_5_0_3101.original.tif'
+    img_path ='/tmp/hicfa/PID_10_5_0_3103.original.tif'
+    img_path ='/tmp/hicfa/PID_10_5_0_3104.original.tif'
+    img_path ='/tmp/hicfa/PID_10_5_0_3107.original.tif'
+
+    segment(img_path)    
     # for i in range(100):
     #     segmenter.process(img_path)
