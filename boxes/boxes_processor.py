@@ -1,5 +1,6 @@
 import os
 import numpy as np
+import cv2
 
 import torch
 import torch.backends.cudnn as cudnn
@@ -18,7 +19,7 @@ class BoxProcessor:
         self.net, self.encoder = self.__load()
 
     def __load(self):
-        tune_from = '../models/text_detector/best_segmenter.pth'
+        tune_from = './models/text_detector/best_segmenter.pth'
         nms_thresh = 0.1
         cls_thresh = 0.4
         # -input_size=1280 --nms_thresh=0.1 --cls_thresh=0.4
@@ -47,7 +48,8 @@ class BoxProcessor:
         ])
 
         print('Loading image...')
-        snippet = resize_image(snippet, (1280, 1280))
+        # 1280
+        snippet = resize_image(snippet, (1024, 1024))
         img = Image.fromarray(snippet)
         shape = snippet.shape
         print(shape)
@@ -84,4 +86,9 @@ class BoxProcessor:
 
         for box in boxes:
             draw.polygon(np.expand_dims(box,0), outline=(0,255,0))
-        img.save("/tmp/form-segmentation/box.png")
+        # img.save("/tmp/form-segmentation/box.png")
+
+        cv_snip = np.array(img)                
+        snippet = cv2.cvtColor(cv_snip, cv2.COLOR_RGB2BGR)# convert RGB to BGR
+        return snippet
+

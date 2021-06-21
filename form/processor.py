@@ -71,7 +71,7 @@ def process(img_path, dir_out, network_parameters):
     
 
     
-def paste_fragment(overlay, fragment, pos=(0,0)):
+def _fragment(overlay, fragment, pos=(0,0)):
     # You may need to convert the color.
     fragment = cv2.cvtColor(fragment, cv2.COLOR_BGR2RGB)
     fragment_pil = Image.fromarray(fragment)

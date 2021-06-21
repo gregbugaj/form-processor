@@ -122,8 +122,7 @@ class FieldProcessor:
         imwrite(save_path, snippet)
 
         dataset = create_dataset(opt)  # create a dataset given opt.dataset_mode and other options
-
-        dataset = create_dataset(opt)  # create a dataset given opt.dataset_mode and other options
+        
         for i, data in enumerate(dataset):
             model.set_input(data)  # unpack data from data loader
             model.test()           # run inference
@@ -167,7 +166,9 @@ class FieldProcessor:
             '--gpu_id', '-1',
             '--norm', 'batch',
             '--preprocess', 'none',
-            '--checkpoints_dir', '../models/segmenter',
+            '--checkpoints_dir', './models/segmenter',
+            '--input_nc', '1',
+            '--output_nc', '1',
         ]
 
         # override model defaults       
@@ -182,6 +183,10 @@ class FieldProcessor:
             args_default.append('--norm')
             args_default.append('instance')
             args_default.append('--no_dropout')
+            args_default.append('--input_nc')
+            args_default.append('3')
+            args_default.append('--output_nc')
+            args_default.append('3')
 
         print(args_default)
         args = args_default
