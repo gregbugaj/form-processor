@@ -23,6 +23,26 @@ from craft_text_detector import (
 
 from utils.resize_image import resize_image
 
+def make_power_2(img, base, method=Image.BICUBIC):
+    ow, oh = img.size
+    h = int(round(oh / base) * base)
+    w = int(round(ow / base) * base)
+    if h == oh and w == ow:
+        return img
+         
+    print("The image size needs to be a multiple of 4. "
+              "The loaded image size was (%d, %d), so it was adjusted to "
+              "(%d, %d). This adjustment will be done to all images "
+              "whose sizes are not multiples of 4" % (ow, oh, w, h))
+
+    return img.resize((w, h), method)
+
+def imwrite(path, img):
+    try:
+        cv2.imwrite(path, img)
+    except Exception as ident:
+        print(ident)
+
 def crop_poly_low(img, poly):
     """
         find region using the poly points
@@ -59,6 +79,7 @@ def crop_poly_low(img, poly):
 def ensure_exists(dir):
     if not os.path.exists(dir):
         os.makedirs(dir)   
+    return dir
         
 def paste_fragment(overlay, fragment, pos=(0,0)):
     # You may need to convert the color.
@@ -79,12 +100,80 @@ class BoxProcessor:
 
         return craft_net, refine_net
 
+    def extract_bounding_boxes(self,id,key, image):
+        """
+            Extrac bouding boxes for specific image
+        """
+        print('Extracting bounding boxes')
+
+        debug_dir =  ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'debug'))
+        crops_dir = ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'crop'))
+        output_dir = ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'output'))
+
+        h=image.shape[0]
+        w=image.shape[1]
+        image=copy.deepcopy(image)
+
+        # perform prediction
+        prediction_result = get_prediction(
+            image=image,
+            craft_net=self.craft_net,
+            refine_net=self.refine_net,
+            text_threshold=0.8,
+            link_threshold=0.6,
+            low_text=0.6,
+            cuda=self.cuda,
+            long_size=w 
+        )
+
+        image_results = copy.deepcopy(image)
+        export_extra_results(
+            image=image_results,
+            regions=prediction_result["boxes"],
+            heatmaps=prediction_result["heatmaps"],
+            output_dir=output_dir
+        )
+
+        # output text only blocks
+        # deepcopy image so that original is not altered
+        image = copy.deepcopy(image)
+        regions=prediction_result["boxes"]
+        pil_image = Image.new('RGB', (image.shape[1], image.shape[0]), color=(255,255,255,0))
+
+        rect_from_poly=[]
+        fragments=[]
+        for i, region in enumerate(regions):
+            region = np.array(region).astype(np.int32).reshape((-1))
+            region = region.reshape(-1, 2)
+            poly = region.reshape((-1, 1, 2))
+
+            box = cv2.boundingRect(poly)
+            box = np.array(box).astype(np.int32)
+            x,y,w,h = box
+            
+            snippet = crop_poly_low(image, poly)
+            fragments.append(snippet)
+            rect_from_poly.append(box)
+
+            # export cropped region
+            file_path = os.path.join(crops_dir, "%s.jpg" % (i))
+            cv2.imwrite(file_path, snippet)
+            paste_fragment(pil_image, snippet, (x, y))
+
+        savepath = os.path.join(debug_dir, "%s.jpg" % ('txt_overlay'))
+        pil_image.save(savepath, format='JPEG', subsampling=0, quality=100)
+
+        return np.array(rect_from_poly), np.array(fragments), prediction_result["boxes"]    
+
+
     def process_full_extraction(self,id,image):
-        print('Processing : {}'.format(id))
-        debug_dir = os.path.join(self.work_dir,id,'boxes_full')
-        crops_dir = os.path.join(self.work_dir,id,'crops_full')
-        ensure_exists(debug_dir)
-        ensure_exists(crops_dir)
+        """
+            Do full page text extraction
+        """
+        print('Processing full page extraction: {}'.format(id))
+
+        debug_dir =  ensure_exists(os.path.join(self.work_dir,id,'boxes_full'))
+        crops_dir = ensure_exists(os.path.join(self.work_dir,id,'crops_full'))
 
         # # read image
         # image = read_image(image)
@@ -142,4 +231,4 @@ class BoxProcessor:
         pil_image.save(savepath, format='JPEG', subsampling=0, quality=100)
 
         cv_img = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
-        return np.array(rect_from_poly), np.array(fragments), cv_img, prediction_result["boxes"]
+        return np.array(rect_from_poly), np.array(fragments), cv_img, prediction_result["boxes"]    

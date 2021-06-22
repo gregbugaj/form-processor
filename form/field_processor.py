@@ -97,18 +97,17 @@ class FieldProcessor:
         # viewImage(result, 'Snippet')
         return result
 
-    def process(self, img_path, fragment)->None:
+    def process(self, id, fragment)->None:
         """
             Process data field
         """
         key = fragment['key']
         print("Processing field : {}".format(key))
-        snippet = fragment['snippet']
+        snippet = fragment['snippet_overlay']
         opt, model = self.__setup(key)
    
-        name = img_path.split('/')[-1]
-        work_dir = os.path.join(self.work_dir, name, 'fields', key)
-        debug_dir = os.path.join(self.work_dir, name, 'fields_debug', key)
+        work_dir = os.path.join(self.work_dir, id, 'fields', key)
+        debug_dir = os.path.join(self.work_dir, id, 'fields_debug', key)
        
         ensure_exists(work_dir)
         ensure_exists(debug_dir)
@@ -178,6 +177,7 @@ class FieldProcessor:
         argsmap['HCFA21'] = args_default
 
         if key == 'HCFA33_BILLING' or key == 'HCFA21':
+        # if  key == 'HCFA21':
             args_default = argsmap[key]
             args_default.append('--norm')
             args_default.append('instance')
