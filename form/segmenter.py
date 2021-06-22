@@ -402,7 +402,7 @@ class FormSegmeneter:
                 # try 8 px on each side
                 shape = snippet.shape
 
-                pad = 64
+                pad = 0
 
                 pil_padded = Image.new('RGB', (shape[1] + pad, shape[0] + pad), color=(255,255,255,0))
                 paste_fragment(pil_padded, snippet, (pad//2, pad//2))
@@ -504,12 +504,14 @@ def segment(img_path):
     fragments = segmenter.process(img_path)
     fp = FieldProcessor(work_dir='/tmp/form-segmentation')
 
+    # Same model
     fragments['HCFA02']['clean'] = fp.process(img_path,fragments['HCFA02'])
     # fragments['HCFA05_ADDRESS']['clean'] = fp.process(img_path,fragments['HCFA05_ADDRESS'])
     # fragments['HCFA05_CITY']['clean'] = fp.process(img_path,fragments['HCFA05_CITY'])
     # fragments['HCFA05_STATE']['clean'] = fp.process(img_path,fragments['HCFA05_STATE'])
     # fragments['HCFA05_ZIP']['clean'] = fp.process(img_path,fragments['HCFA05_ZIP'])
     # fragments['HCFA05_PHONE']['clean'] = fp.process(img_path,fragments['HCFA05_PHONE'])
+
     # fragments['HCFA33_BILLING']['clean'] = fp.process(img_path,fragments['HCFA33_BILLING'])
     # fragments['HCFA21']['clean'] = fp.process(img_path,fragments['HCFA21'])
     
@@ -538,7 +540,6 @@ def segment(img_path):
             savepath = os.path.join(debug_dir, "%s-%s.jpg" % ('clean_overlay' , tm))
             imwrite(savepath, detection)
 
-
 if __name__ == '__main__':
     img_path ='/tmp/hicfa/PID_10_5_0_2787.original.redacted.tif'
     img_path ='/tmp/hicfa/PID_10_5_0_113174.tif'
@@ -549,9 +550,12 @@ if __name__ == '__main__':
     # img_path ='/tmp/hicfa/task_3100-3199-2021_05_26_23_59_41-cvat for images 1.1/images/PID_10_5_0_3101.original.tif'
     # img_path ='/tmp/hicfa/task_3100-3199-2021_05_26_23_59_41-cvat for images 1.1/images/PID_10_5_0_3102.original.tif'
     # img_path ='/tmp/hicfa/task_3100-3199-2021_05_26_23_59_41-cvat for images 1.1/images/PID_10_5_0_3104.original.tif'
+    img_path ='/tmp/hicfa/task_3100-3199-2021_05_26_23_59_41-cvat for images 1.1/images/PID_10_5_0_3101.original.tif'
+    img_path ='/tmp/hicfa/task_3100-3199-2021_05_26_23_59_41-cvat for images 1.1/images/PID_10_5_0_3102.original.tif'
+    img_path ='/tmp/hicfa/task_3100-3199-2021_05_26_23_59_41-cvat for images 1.1/images/PID_10_5_0_3104.original.tif'
+    img_path ='/tmp/hicfa/task_3100-3199-2021_05_26_23_59_41-cvat for images 1.1/images/PID_10_5_0_3101.original.tif'
  
     segment(img_path)
-
 
     # /tmp/hicfa/task_3100-3199-2021_05_26_23_59_41-cvat for images 1.1/images
     # import glob
