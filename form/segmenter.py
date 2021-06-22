@@ -10,7 +10,7 @@ from matplotlib import colors
 from matplotlib.colors import hsv_to_rgb, rgb_to_hsv
 from PIL import Image
 import numpy as np
-from shutil import copyfile
+from shutil import copy, copyfile
 import time
 
 from utils.nms import nms, non_max_suppression_fast
@@ -22,8 +22,7 @@ from pix2pix.models import create_model
 from pix2pix.util.visualizer import save_images
 from pix2pix.util.util import tensor2im
  
-from boxes.boxes_processor import BoxProcessor
-
+from boxes.box_processor import BoxProcessor
 
 # Don't change the order here as the field dictionary depends on it
 hsv_color_ranges = [
@@ -98,6 +97,28 @@ def make_power_2(img, base, method=Image.BICUBIC):
 
     return img.resize((w, h), method)
 
+def find_overlap(box, data):
+    # data = data[data[::,0]<rect[1]]
+    # data = data[data[::,1]<rect[0]]
+    # data = data[data[::,2]<rect[3]]
+    # data = data[data[::,3]<rect[2]]
+    overalps=[]
+    x,y,w,h=box
+    x1min=x
+    x1max=x+w
+    y1min=y
+    y1max=y+h
+
+    for bb in data:
+        _x,_y,_w,_h=bb
+        x2min=_x
+        x2max=_x+_w
+        y2min=_y
+        y2max=_y+_h
+
+        if (x1min<=x2max and x2min<=x1max and y1min <= y2max and y2min <= y1max) :
+            overalps.append(bb)
+    return overalps
 class FormSegmeneter:
     def __init__(self, work_dir, network):
         self.network = network
@@ -322,14 +343,43 @@ class FormSegmeneter:
         non_scored_box = all_boxes[idx][:4].astype('int32')  
         return box, non_scored_box
 
-    def process(self, img_path):
+    def merge_boxes_with_segmask(self, id, seg_fragments, rectangles, box_fragment_imgs, overlay_img):
+        """
+            merge boxes with segmentation mask in order to obtain clean extraction image
+            return for each segmenation fragment an area to process, area can be larger that the segmenation mask as 
+            it is possible for the textboxes to be outside mask
+        """
+        print('Merging boxes with segmentation mask')
+        debug_dir =  os.path.join(self.work_dir, 'work')
+        ensure_exists(debug_dir)
+        # img = overlay_img.copy()
+        img = np.ones((overlay_img.shape[1], overlay_img.shape[0]), np.uint8) * 255
+
+        for _key in seg_fragments.keys():
+            frag = seg_fragments[_key]
+            key = frag['key']
+            _id = frag['id']
+            box = frag['box'] # x,y,w,h
+            snippet = frag['snippet'] # x,y,w,h
+            if box is None:
+                continue
+
+            overlaps = find_overlap(box, rectangles)
+            for overlap in overlaps:
+                cv2.rectangle(img,(overlap[0],overlap[1]),(overlap[0]+overlap[2],overlap[1]+overlap[3]), (0,255,0),3)
+
+        save_path_overlay = os.path.join(debug_dir, "%s.png" % 'merge_boxes_with_segmask')
+        imwrite(save_path_overlay, img)
+        viewImage(img, 'overlay')
+
+    def segment(self, id: str, img_path:str):
         """
             Form segmentation 
         """
         if not os.path.exists(img_path):
             raise Exception('File not found : {}'.format(img_path))
 
-        name = img_path.split('/')[-1]
+        name = id
         work_dir = os.path.join(self.work_dir, name, 'work')
         debug_dir = os.path.join(self.work_dir, name, 'debug')        
         dataroot_dir = os.path.join(self.work_dir, name, 'dataroot')
@@ -403,7 +453,6 @@ class FormSegmeneter:
                 shape = snippet.shape
 
                 pad = 0
-
                 pil_padded = Image.new('RGB', (shape[1] + pad, shape[0] + pad), color=(255,255,255,0))
                 paste_fragment(pil_padded, snippet, (pad//2, pad//2))
 
@@ -454,7 +503,7 @@ class FormSegmeneter:
         savepath = os.path.join(debug_dir, "%s-%s.jpg" % ('fragment_overlay' , tm))
         overlay.save(savepath, format='JPEG', subsampling=0, quality=100)
         
-        return fragments
+        return fragments, img 
 
     def build_clean_fragments(self, img_path, fragments):
         """
@@ -489,21 +538,47 @@ class FormSegmeneter:
 
 def segment(img_path):
     print('Segment')
+    work_dir='/tmp/form-segmentation'
+    id = img_path.split('/')[-1]
 
-    src = '/tmp/form-segmentation/PID_10_5_0_113174.tif/fields_debug/HCFA02/segmenation_fake.png'
-    src = '/tmp/form-segmentation/PID_10_5_0_113174.tif/fields_debug/HCFA05_ADDRESS/segmenation_fake.png'
-    src = '/tmp/form-segmentation/PID_10_5_0_113174.tif/fields_debug/HCFA05_PHONE/segmenation_fake.png'
-    src = '/tmp/form-segmentation/PID_10_5_0_113174.tif/fields_debug/HCFA05_STATE/segmenation_fake.png'
+    segmenter = FormSegmeneter(work_dir, network="")
+    seg_fragments, img = segmenter.segment(id, img_path)
+    
+    boxer = BoxProcessor(work_dir, cuda=True)
+    rectangles, box_fragment_imgs, overlay_img, _ = boxer.process_full_extraction(id, img)
+
+    segmenter.merge_boxes_with_segmask(id, seg_fragments, rectangles, box_fragment_imgs, overlay_img)
+    
+
+    return
+    fp = FieldProcessor(work_dir='/tmp/form-segmentation')
+    # Same model
+    fragments['HCFA02']['clean'] = fp.process(img_path,fragments['HCFA02'])
+    # fragments['HCFA05_ADDRESS']['clean'] = fp.process(img_path,fragments['HCFA05_ADDRESS'])
+    # fragments['HCFA05_CITY']['clean'] = fp.process(img_path,fragments['HCFA05_CITY'])
+    # fragments['HCFA05_STATE']['clean'] = fp.process(img_path,fragments['HCFA05_STATE'])
+    # fragments['HCFA05_ZIP']['clean'] = fp.process(img_path,fragments['HCFA05_ZIP'])
+    # fragments['HCFA05_PHONE']['clean'] = fp.process(img_path,fragments['HCFA05_PHONE'])
+
+    # fragments['HCFA33_BILLING']['clean'] = fp.process(img_path,fragments['HCFA33_BILLING'])
+    # fragments['HCFA21']['clean'] = fp.process(img_path,fragments['HCFA21'])
+    
+    clean_img=segmenter.build_clean_fragments(img_path, fragments)
+
+
+def segmentXX(img_path):
+    print('Segment')
+    
     # snip = cv2.imread(src)
-
     # boxer = BoxProcessor()
     # boxer.process(snip)
     work_dir='/tmp/form-segmentation'
 
     segmenter = FormSegmeneter(work_dir, network="")
-    fragments = segmenter.process(img_path)
-    fp = FieldProcessor(work_dir='/tmp/form-segmentation')
+    fragments = segmenter.segment(img_path)
 
+    return
+    fp = FieldProcessor(work_dir='/tmp/form-segmentation')
     # Same model
     fragments['HCFA02']['clean'] = fp.process(img_path,fragments['HCFA02'])
     # fragments['HCFA05_ADDRESS']['clean'] = fp.process(img_path,fragments['HCFA05_ADDRESS'])
@@ -544,16 +619,14 @@ if __name__ == '__main__':
     img_path ='/tmp/hicfa/PID_10_5_0_2787.original.redacted.tif'
     img_path ='/tmp/hicfa/PID_10_5_0_113174.tif'
     img_path ='/tmp/hicfa/PID_10_5_0_3101.original.tif'
-    # img_path ='/tmp/hicfa/PID_10_5_0_3103.original.tif'
-    # img_path ='/tmp/hicfa/PID_10_5_0_3104.original.tif'
 
     # img_path ='/tmp/hicfa/task_3100-3199-2021_05_26_23_59_41-cvat for images 1.1/images/PID_10_5_0_3101.original.tif'
     # img_path ='/tmp/hicfa/task_3100-3199-2021_05_26_23_59_41-cvat for images 1.1/images/PID_10_5_0_3102.original.tif'
     # img_path ='/tmp/hicfa/task_3100-3199-2021_05_26_23_59_41-cvat for images 1.1/images/PID_10_5_0_3104.original.tif'
-    img_path ='/tmp/hicfa/task_3100-3199-2021_05_26_23_59_41-cvat for images 1.1/images/PID_10_5_0_3101.original.tif'
-    img_path ='/tmp/hicfa/task_3100-3199-2021_05_26_23_59_41-cvat for images 1.1/images/PID_10_5_0_3102.original.tif'
-    img_path ='/tmp/hicfa/task_3100-3199-2021_05_26_23_59_41-cvat for images 1.1/images/PID_10_5_0_3104.original.tif'
-    img_path ='/tmp/hicfa/task_3100-3199-2021_05_26_23_59_41-cvat for images 1.1/images/PID_10_5_0_3101.original.tif'
+    # img_path ='/tmp/hicfa/task_3100-3199-2021_05_26_23_59_41-cvat for images 1.1/images/PID_10_5_0_3101.original.tif'
+    # img_path ='/tmp/hicfa/task_3100-3199-2021_05_26_23_59_41-cvat for images 1.1/images/PID_10_5_0_3102.original.tif'
+    # img_path ='/tmp/hicfa/task_3100-3199-2021_05_26_23_59_41-cvat for images 1.1/images/PID_10_5_0_3104.original.tif'
+    # img_path ='/tmp/hicfa/task_3100-3199-2021_05_26_23_59_41-cvat for images 1.1/images/PID_10_5_0_3101.original.tif'
  
     segment(img_path)
 

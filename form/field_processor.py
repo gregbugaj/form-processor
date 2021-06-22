@@ -13,7 +13,6 @@ import os, sys
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
 from utils.nms import nms, non_max_suppression_fast
 
-
 from pix2pix.options.test_options import TestOptions
 from pix2pix.data import create_dataset
 from pix2pix.models import create_model
