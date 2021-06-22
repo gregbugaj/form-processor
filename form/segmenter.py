@@ -613,7 +613,7 @@ def segment(img_path):
     segmenter = FormSegmeneter(work_dir, network="")
     seg_fragments, img, segmask = segmenter.segment(id, img_path)
     
-    boxer = BoxProcessor(work_dir, cuda=True)
+    boxer = BoxProcessor(work_dir, cuda=False)
     rectangles, box_fragment_imgs, overlay_img, _ = boxer.process_full_extraction(id, img)
     
     segmenter.fragment_to_box_snippet(id, seg_fragments, overlay_img)
@@ -763,7 +763,7 @@ def segmentXX(img_path):
 
 if __name__ == '__main__':
     img_path ='/tmp/hicfa/images/PID_10_5_0_3202.original.tif'
-    img_path ='/tmp/hicfa/images/PID_10_5_0_3203.original.tif'
+    # img_path ='/tmp/hicfa/images/PID_10_5_0_3203.original.tif'
  
     segment(img_path)
  

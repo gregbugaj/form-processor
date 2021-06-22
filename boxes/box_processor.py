@@ -119,11 +119,11 @@ class BoxProcessor:
             image=image,
             craft_net=self.craft_net,
             refine_net=self.refine_net,
-            text_threshold=0.6,
-            link_threshold=0.75,
+            text_threshold=0.7,
+            link_threshold=0.95,
             low_text=0.4,
             cuda=self.cuda,
-            long_size=w 
+            long_size=w
         )
 
         image_results = copy.deepcopy(image)
