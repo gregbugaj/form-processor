@@ -1,94 +1,97 @@
+
+# Add parent to the search path so we can reference the modules(craft, pix2pix) here without throwing and exception 
+import os, sys
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
+
 import os
 import numpy as np
+import copy
 import cv2
+import numpy as np
+from PIL import Image
 
-import torch
-import torch.backends.cudnn as cudnn
-from torch.autograd import Variable
-import torchvision.transforms as transforms
+from craft_text_detector import Craft
 
-from retinanet import RetinaNet
-from encoder import DataEncoder
-from PIL import Image, ImageDraw
+# import craft functions
+from craft_text_detector import (
+    read_image,
+    load_craftnet_model,
+    load_refinenet_model,
+    get_prediction,
+    export_detected_regions,
+    export_extra_results,
+    empty_cuda_cache
+)
 
 from utils.resize_image import resize_image
 
+def crop_poly_low(img, poly):
+    """
+        find region using the poly points
+        create mask using the poly points
+        do mask op to crop
+        add white bg
+    """
+    # points should have 1*x*2  shape
+    if len(poly.shape) == 2:
+        poly = np.array([np.array(poly).astype(np.int32)])
+
+    pts=poly
+    ## (1) Crop the bounding rect
+    rect = cv2.boundingRect(pts)
+    x,y,w,h = rect
+    croped = img[y:y+h, x:x+w].copy()
+
+    ## (2) make mask
+    pts = pts - pts.min(axis=0)
+
+    mask = np.zeros(croped.shape[:2], np.uint8)
+    cv2.drawContours(mask, [pts], -1, (255, 255, 255), -1, cv2.LINE_AA)
+
+    ## (3) do bit-op
+    dst = cv2.bitwise_and(croped, croped, mask=mask)
+
+    ## (4) add the white background
+    bg = np.ones_like(croped, np.uint8)*255
+    cv2.bitwise_not(bg,bg, mask=mask)
+    dst2 = bg + dst
+
+    return dst2
+
 class BoxProcessor:
-    def __init__(self) -> None:
-        print("Box processor")
-        self.net, self.encoder = self.__load()
+    def __init__(self, cuda: bool = False) -> None:
+        print("Box processor [cuda={}]".format(cuda))
+        self.cuda = cuda
+        self.craft_net, self.refine_net = self.__load()
 
     def __load(self):
-        tune_from = './models/text_detector/best_segmenter.pth'
-        nms_thresh = 0.1
-        cls_thresh = 0.4
-        # -input_size=1280 --nms_thresh=0.1 --cls_thresh=0.4
-        net = RetinaNet()
-        net = net.cuda()
+        # load models
+        refine_net = load_refinenet_model(cuda=self.cuda)
+        craft_net = load_craftnet_model(cuda=self.cuda)
 
-        # load checkpoint
-        checkpoint = torch.load(tune_from)
-
-        net.load_state_dict(checkpoint['net'])
-        net.eval()
-        
-        encoder = DataEncoder(cls_thresh,nms_thresh)
-        return net, encoder
+        return craft_net, refine_net
 
     def process(self, snippet):
         print('Processing')
-        
-        print(self.net)
-        encoder = self.encoder
-        net = self.net
+        # # read image
+        # image = read_image(image)
 
-        transform = transforms.Compose([
-            transforms.ToTensor(),
-            transforms.Normalize((0.485,0.456,0.406), (0.229,0.224,0.225))
-        ])
+        h=snippet.shape[0]
+        w=snippet.shape[1]
+        image=snippet
+        # perform prediction
+        prediction_result = get_prediction(
+            image=image,
+            craft_net=self.craft_net,
+            refine_net=self.refine_net,
+            text_threshold=0.7,
+            link_threshold=0.4,
+            low_text=0.4,
+            cuda=True,
+            long_size=w #1280
+        )
 
-        print('Loading image...')
-        # 1280
-        snippet = resize_image(snippet, (1024, 1024))
-        img = Image.fromarray(snippet)
-        shape = snippet.shape
-        print(shape)
-        w = shape[1]
-        h = shape[0]
-        img = img.resize((w,h))
-        # w = shape[1]
-        # h = shape[0]
-
-        print(img)
-        print('Predicting..')
-
-        x = transform(img)
-        x = x.unsqueeze(0)
-        x = Variable(x)
-        x = x.cuda()
-
-        loc_preds, cls_preds = net(x)
-
-        print('Decoding..')
-        print(loc_preds)
-        print(cls_preds)
-
-        boxes, labels, scores = encoder.decode(loc_preds.data.squeeze(0), cls_preds.data.squeeze(0), (w,h))
-        draw = ImageDraw.Draw(img)
-       
-        print(boxes)
-        print(labels)
-        print(scores)
-
-        # boxes = boxes.data.numpy()
-        # boxes = boxes.data.numpy()
-        boxes = boxes.reshape(-1, 4, 2)
-
-        for box in boxes:
-            draw.polygon(np.expand_dims(box,0), outline=(0,255,0))
-        # img.save("/tmp/form-segmentation/box.png")
-
-        cv_snip = np.array(img)                
-        snippet = cv2.cvtColor(cv_snip, cv2.COLOR_RGB2BGR)# convert RGB to BGR
+        # cv_snip = np.array(img)                
+        # snippet = cv2.cvtColor(cv_snip, cv2.COLOR_RGB2BGR)# convert RGB to BGR
         return snippet
 

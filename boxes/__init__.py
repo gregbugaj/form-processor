@@ -1,6 +1,6 @@
 """
 Name : __init__.py
-pix2pxi module
+boxes module
 
 This import path is important to allow importing correctly as package
 """

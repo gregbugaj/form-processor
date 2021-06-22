@@ -1,3 +1,7 @@
+# Add parent to the search path so we can reference the module here without throwing and exception 
+import os, sys
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
+
 import cv2
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -9,12 +13,7 @@ import numpy as np
 from shutil import copyfile
 import time
 
-
-# Add parent to the search path so we can reference the module here without throwing and exception 
-import os, sys
-sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
 from utils.nms import nms, non_max_suppression_fast
-
 from field_processor import FieldProcessor
 
 from pix2pix.options.test_options import TestOptions
@@ -23,7 +22,6 @@ from pix2pix.models import create_model
 from pix2pix.util.visualizer import save_images
 from pix2pix.util.util import tensor2im
  
-
 from boxes.boxes_processor import BoxProcessor
 
 
@@ -504,16 +502,15 @@ def segment(img_path):
 
     segmenter = FormSegmeneter(work_dir, network="")
     fragments = segmenter.process(img_path)
-
     fp = FieldProcessor(work_dir='/tmp/form-segmentation')
 
     fragments['HCFA02']['clean'] = fp.process(img_path,fragments['HCFA02'])
-    fragments['HCFA05_ADDRESS']['clean'] = fp.process(img_path,fragments['HCFA05_ADDRESS'])
-    fragments['HCFA05_CITY']['clean'] = fp.process(img_path,fragments['HCFA05_CITY'])
-    fragments['HCFA05_STATE']['clean'] = fp.process(img_path,fragments['HCFA05_STATE'])
-    fragments['HCFA05_ZIP']['clean'] = fp.process(img_path,fragments['HCFA05_ZIP'])
-    fragments['HCFA05_PHONE']['clean'] = fp.process(img_path,fragments['HCFA05_PHONE'])
-    fragments['HCFA33_BILLING']['clean'] = fp.process(img_path,fragments['HCFA33_BILLING'])
+    # fragments['HCFA05_ADDRESS']['clean'] = fp.process(img_path,fragments['HCFA05_ADDRESS'])
+    # fragments['HCFA05_CITY']['clean'] = fp.process(img_path,fragments['HCFA05_CITY'])
+    # fragments['HCFA05_STATE']['clean'] = fp.process(img_path,fragments['HCFA05_STATE'])
+    # fragments['HCFA05_ZIP']['clean'] = fp.process(img_path,fragments['HCFA05_ZIP'])
+    # fragments['HCFA05_PHONE']['clean'] = fp.process(img_path,fragments['HCFA05_PHONE'])
+    # fragments['HCFA33_BILLING']['clean'] = fp.process(img_path,fragments['HCFA33_BILLING'])
     # fragments['HCFA21']['clean'] = fp.process(img_path,fragments['HCFA21'])
     
     clean_img=segmenter.build_clean_fragments(img_path, fragments)
@@ -546,12 +543,12 @@ if __name__ == '__main__':
     img_path ='/tmp/hicfa/PID_10_5_0_2787.original.redacted.tif'
     img_path ='/tmp/hicfa/PID_10_5_0_113174.tif'
     img_path ='/tmp/hicfa/PID_10_5_0_3101.original.tif'
-    img_path ='/tmp/hicfa/PID_10_5_0_3103.original.tif'
-    img_path ='/tmp/hicfa/PID_10_5_0_3104.original.tif'
+    # img_path ='/tmp/hicfa/PID_10_5_0_3103.original.tif'
+    # img_path ='/tmp/hicfa/PID_10_5_0_3104.original.tif'
 
-    img_path ='/tmp/hicfa/task_3100-3199-2021_05_26_23_59_41-cvat for images 1.1/images/PID_10_5_0_3101.original.tif'
-    img_path ='/tmp/hicfa/task_3100-3199-2021_05_26_23_59_41-cvat for images 1.1/images/PID_10_5_0_3102.original.tif'
-    img_path ='/tmp/hicfa/task_3100-3199-2021_05_26_23_59_41-cvat for images 1.1/images/PID_10_5_0_3104.original.tif'
+    # img_path ='/tmp/hicfa/task_3100-3199-2021_05_26_23_59_41-cvat for images 1.1/images/PID_10_5_0_3101.original.tif'
+    # img_path ='/tmp/hicfa/task_3100-3199-2021_05_26_23_59_41-cvat for images 1.1/images/PID_10_5_0_3102.original.tif'
+    # img_path ='/tmp/hicfa/task_3100-3199-2021_05_26_23_59_41-cvat for images 1.1/images/PID_10_5_0_3104.original.tif'
  
     segment(img_path)
 
