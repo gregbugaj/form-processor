@@ -602,12 +602,13 @@ def segment(img_path):
     id = img_path.split('/')[-1]
     debug_dir = ensure_exists(os.path.join(work_dir, id, 'work'))
 
-    img_path='/tmp/form-segmentation/PID_10_5_0_3202.original.tif/bounding_boxes/HCFA02/crop'
-    snip = cv2.imread(img_path)
+    # img_path='/tmp/form-segmentation/PID_10_5_0_3202.original.tif/bounding_boxes/HCFA02/crop'
+    # snip = cv2.imread(img_path)
 
-    icr = IcrProcessor(work_dir)
-    icr.process('PID_10_5_0_3112.original.tif', 'HCFA02', snip)
-    return 
+    # icr = IcrProcessor(work_dir)
+    # icr.process('PID_10_5_0_3112.original.tif', 'HCFA02', snip)
+
+    # return 
 
     segmenter = FormSegmeneter(work_dir, network="")
     seg_fragments, img, segmask = segmenter.segment(id, img_path)
@@ -664,6 +665,7 @@ def segment_icr(img_path):
 
     icr = IcrProcessor(work_dir)
     icr.process('PID_10_5_0_3112.original.tif', 'HCFA02', snip)
+    
     return 
 
     segmenter = FormSegmeneter(work_dir, network="")
@@ -761,16 +763,13 @@ def segmentXX(img_path):
 
 if __name__ == '__main__':
     img_path ='/tmp/hicfa/images/PID_10_5_0_3202.original.tif'
+    img_path ='/tmp/hicfa/images/PID_10_5_0_3203.original.tif'
  
     segment(img_path)
-
-    # /tmp/hicfa/task_3100-3199-2021_05_26_23_59_41-cvat for images 1.1/images
-    # import glob
-    # for name in glob.glob('/tmp/hicfa/task_3100-3199-2021_05_26_23_59_41-cvat for images 1.1/images/*.tif'):
-    #     print(name)
-    #     segment(name)
-    #     break
-    
-    # segment(img_path)    
-    # for i in range(100):
-    #     segmenter.process(img_path)
+ 
+    if False:
+        import glob
+        for name in glob.glob('/tmp/hicfa/images/*.tif'):
+            print(name)
+            segment(name)
+            # break

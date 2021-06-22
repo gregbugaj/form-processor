@@ -119,9 +119,9 @@ class BoxProcessor:
             image=image,
             craft_net=self.craft_net,
             refine_net=self.refine_net,
-            text_threshold=0.8,
-            link_threshold=0.6,
-            low_text=0.6,
+            text_threshold=0.6,
+            link_threshold=0.75,
+            low_text=0.4,
             cuda=self.cuda,
             long_size=w 
         )
