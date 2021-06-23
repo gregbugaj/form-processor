@@ -617,7 +617,6 @@ def segment(img_path):
     seg_fragments, img, segmask = segmenter.segment(id, img_path)
     
     rectangles, box_fragment_imgs, overlay_img, _ = boxer.process_full_extraction(id, img)
-    
     segmenter.fragment_to_box_snippet(id, seg_fragments, overlay_img)
 
     print('-------- Image information -----------')

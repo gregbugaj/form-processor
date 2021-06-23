@@ -112,7 +112,7 @@ class BoxProcessor:
         crops_dir = ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'crop'))
         output_dir = ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'output'))
 
-        print(output_dir)
+        image = resize_image(image, (image.shape[0] //2, image.shape[1] //2))
         h=image.shape[0]
         w=image.shape[1]
         image=copy.deepcopy(image)
@@ -122,7 +122,7 @@ class BoxProcessor:
         prediction_result = get_prediction(
             image=image,
             craft_net=self.craft_net,
-            refine_net=None, #self.refine_net,
+            refine_net=None,
             text_threshold=0.7,
             link_threshold=0.4,
             low_text=0.4,
