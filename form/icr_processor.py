@@ -55,3 +55,5 @@ class IcrProcessor:
 
         debug_dir =  ensure_exists(os.path.join(self.work_dir,id,'icr', key, 'debug'))
         output_dir = ensure_exists(os.path.join(self.work_dir,id,'icr', key, 'output'))
+
+        

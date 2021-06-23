@@ -1,6 +1,7 @@
 # Add parent to the search path so we can reference the module here without throwing and exception 
 import os, sys
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
+from craft_text_detector.image_utils import read_image
 
 import cv2
 import matplotlib.pyplot as plt
@@ -599,27 +600,21 @@ class FormSegmeneter:
 def segment(img_path):
     print('Segment')
 
-    # img_path='/home/greg/tmp/txt_overlay.png'
-    # img_path='/home/greg/tmp/txt_overlay.jpg'
-    # img_path='/home/greg/tmp/txt_overlay001.jpg'
-    # snip = cv2.imread(img_path)
-
     work_dir='/tmp/form-segmentation'
     id = img_path.split('/')[-1]
     debug_dir = ensure_exists(os.path.join(work_dir, id, 'work'))
 
-    # # icr = IcrProcessor(work_dir)
-    # # icr.process('PID_10_5_0_3112.original.tif', 'HCFA02', snip)
+    # img_path='/tmp/form-segmentation/PID_10_5_0_3101.original.tif/bounding_boxes/HCFA02/crop/0.jpg'
+    # snip = cv2.imread(img_path)
+    # icr = IcrProcessor(work_dir)
+    # icr.process('PID_10_5_0_3101.original.tif', 'HCFA02', snip)
+    # return 
 
-    # # return 
     boxer = BoxProcessor(work_dir, cuda=False)
     # boxer.extract_bounding_boxes(id, 'HCFA33_BILLING', snip)
-
-    # return 
     
     segmenter = FormSegmeneter(work_dir, network="")
     seg_fragments, img, segmask = segmenter.segment(id, img_path)
-    
     
     rectangles, box_fragment_imgs, overlay_img, _ = boxer.process_full_extraction(id, img)
     
@@ -652,13 +647,13 @@ def segment(img_path):
     # fragments['HCFA05_ZIP']['clean'] = fp.process(img_path,fragments['HCFA05_ZIP'])
     # fragments['HCFA05_PHONE']['clean'] = fp.process(img_path,fragments['HCFA05_PHONE'])
     
-    seg_fragments['HCFA33_BILLING']['snippet_clean'] = fp.process(id, seg_fragments['HCFA33_BILLING'])
+    # seg_fragments['HCFA33_BILLING']['snippet_clean'] = fp.process(id, seg_fragments['HCFA33_BILLING'])
 
     # fragments['HCFA21']['clean'] = fp.process(img_path,fragments['HCFA21'])
     # clean_img=segmenter.build_clean_fragments(id, img, seg_fragments)
 
     boxer.extract_bounding_boxes(id, 'HCFA02', seg_fragments['HCFA02']['snippet_clean'])
-    boxer.extract_bounding_boxes(id, 'HCFA33_BILLING', seg_fragments['HCFA33_BILLING']['snippet_clean'])
+    # boxer.extract_bounding_boxes(id, 'HCFA33_BILLING', seg_fragments['HCFA33_BILLING']['snippet_clean'])
 
 def segment_icr(img_path):
     print('Segment')
@@ -770,6 +765,25 @@ def segmentXX(img_path):
             savepath = os.path.join(debug_dir, "%s-%s.jpg" % ('clean_overlay' , tm))
             imwrite(savepath, detection)
 
+def icr(id, img, boxes, fragments):
+    print('ICR : {}'.format(id))
+    print('shape : {}'.format(img.shape))
+
+    shape=img.shape
+    block_img = np.ones((shape[0], shape[1]), dtype = np.uint8)*255
+    debug_dir = ensure_exists(os.path.join('/tmp/icr',id))
+
+    # label = '{label} ({id})'.format(id=val, label=key)
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    for i, data in enumerate(zip(boxes, fragments)):
+        box, fragment = data
+        print('Processing box : {}'.format(box))
+        label = 'Conf:.0001'
+        cv2.putText(block_img, label, (box[0], box[1]), font, .4, (0, 0, 0), 1, cv2.LINE_AA)
+
+    savepath=os.path.join(debug_dir, "icr-result.jpg")
+    imwrite(savepath, block_img)
+   
 if __name__ == '__main__':
     img_path ='/tmp/hicfa/images/PID_10_5_0_3202.original.tif'
     # img_path ='/tmp/hicfa/images/PID_10_5_0_3203.original.tif'
@@ -777,8 +791,29 @@ if __name__ == '__main__':
     # img_path='/tmp/hicfa/PID_10_5_0_3103.original.tif'
     
     img_path='/home/greg/tmp/task_3100-3199-2021_05_26_23_59_41-cvat/images/PID_10_5_0_3101.original.tif'
+    img_path='/home/greg/tmp/task_3100-3199-2021_05_26_23_59_41-cvat/images/PID_10_5_0_3102.original.tif' # rotated
+    img_path='/home/greg/tmp/task_3100-3199-2021_05_26_23_59_41-cvat/images/PID_10_5_0_3103.original.tif'
+    
     segment(img_path)
- 
+
+    if False:
+        work_dir='/tmp/form-segmentation'
+        boxer = BoxProcessor(work_dir, cuda=False)
+
+        import glob
+        for name in glob.glob('/home/greg/tmp/snippets/*.png'):
+            print(name)
+            id = name.split('/')[-1]
+            debug_dir = ensure_exists(os.path.join(work_dir, id, 'work'))
+            snip = read_image(name)
+            if snip is None:
+                continue
+
+            boxes, fragments, _= boxer.extract_bounding_boxes(id, 'field', snip)
+
+            # icr(id, snip, boxes, fragments)
+            # break
+
     if False:
         import glob
         for name in glob.glob('/tmp/hicfa/images/*.tif'):

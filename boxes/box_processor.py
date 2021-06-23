@@ -104,15 +104,15 @@ class BoxProcessor:
     def extract_bounding_boxes(self,id,key,image):
         """
             Extrac bouding boxes for specific image
+            return box array, fragment array , prediciton results
         """
-        print('Extracting bounding boxes')
-
+        print('Extracting bounding boxes : {}, {}'.format(id, key))
+        
         debug_dir = ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'debug'))
         crops_dir = ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'crop'))
         output_dir = ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'output'))
 
-        # image = resize_image(image, (1028, 1028))
-
+        print(output_dir)
         h=image.shape[0]
         w=image.shape[1]
         image=copy.deepcopy(image)
@@ -127,90 +127,19 @@ class BoxProcessor:
             link_threshold=0.4,
             low_text=0.4,
             cuda=self.cuda,
-            long_size=w
+            long_size=1028
         )
-
-        # do post processing of the heatmaps to get more accurate bouding boxes
-        heatmaps = prediction_result["heatmaps"]
-         # export heatmaps
-        text_heatmap_file = os.path.join('/home/greg/tmp/debug', 'text_score_heatmap.jpg')  
-        link_heatmap_file = os.path.join('/home/greg/tmp/debug', 'link_heatmap_file.jpg')  
-
-        cv2.imwrite(text_heatmap_file, heatmaps["text_score_heatmap"])
-        cv2.imwrite(link_heatmap_file, heatmaps["link_score_heatmap"])
         
-        heat = heatmaps["text_score_heatmap"]
-        image = cv2.resize(image, (heat.shape[1], heat.shape[0]))
-        framed_img = image
+        regions=prediction_result["boxes"]
+        # deepcopy image so that original is not altered
+        image = copy.deepcopy(image)
 
-        shape=framed_img.shape
-        alpha = 0.5  
-        overlay_img = np.ones((shape[0], shape[1], 3), np.uint8) * 255 # white canvas
-
-        # testing only
-        overlay_img = cv2.addWeighted(overlay_img, alpha, framed_img, 1 - alpha, 0)
-        overlay_img = cv2.addWeighted(overlay_img, alpha, heat, 1 - alpha, 0)
-        cv2.imwrite(os.path.join('/home/greg/tmp/debug', 'overlay.png'), overlay_img)
-
-        print('image shape : {}'.format(image.shape))
-        print('heat shape : {}'.format(heat.shape))
-
-        im_gray = cv2.cvtColor(heat, cv2.COLOR_BGR2GRAY)
-        blur = cv2.GaussianBlur(im_gray,(5,5),0)
-        # th, binary_img = cv2.threshold(blur, 127, 255, cv2.THRESH_BINARY+cv2.THRESH_OTSU)
-        binary_img = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY | cv2.THRESH_OTSU)[1]
-        cv2.imwrite(os.path.join('/home/greg/tmp/debug', 'binary_img.png'), binary_img)
-        
-        # niter = int(math.sqrt(size * min(w, h) / (w * h)) * 2)
-        kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (4, 4))
-        segmap = cv2.dilate(binary_img, kernel)
-
-        cv2.imwrite(os.path.join('/home/greg/tmp/debug', 'post_segmap.png'), segmap)
-
-        # getting mask with connectComponents
-        ret, labels = cv2.connectedComponents(segmap)
-        for label in range(1,ret):
-            mask = np.array(labels, dtype=np.uint8)
-            mask[labels == label] = 255
-            # cv2.imshow('component',mask)
-            # cv2.waitKey(0)
-
-        # getting ROIs with findContours
-        contours = cv2.findContours(segmap, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)[0]
-        for np_contours in contours:
-            box = cv2.boundingRect(np_contours)
-            (x,y,w,h) = box
-            ROI = segmap[y:y+h,x:x+w]
-
-            cv2.rectangle(image, (x,y),(x+w+8,y+h),(0,255,0), 1)
-            # cv2.drawContours(image, [np_contours], -1, (255, 0, 0), 2, 1)
-            # cv2.imshow('ROI', ROI)
-            # cv2.waitKey(0)
-                    
-            # rectangle = cv2.minAreaRect(np_contours)
-            # box = cv2.boxPoints(rectangle)
-            # box = np.int0(box)
-            # (x,y,w,h) = (box[0],box[1],box[2],box[3])
-            # print(box)
-            # ROI = segmap[y:y+h,x:x+w]
-            # cv2.imshow('ROI', ROI)
-            # cv2.waitKey(0)
-
-        cv2.imshow('image', image)
-        cv2.waitKey(0)
-
-        image_results = copy.deepcopy(image)
-        export_extra_results(
-            image=image_results,
-            regions=prediction_result["boxes"],
-            heatmaps=prediction_result["heatmaps"],
+        export_detected_regions(
+            image=image,
+            regions=regions,
             output_dir=output_dir
         )
 
-        # output text only blocks
-        # deepcopy image so that original is not altered
-        image = copy.deepcopy(image)
-        regions=prediction_result["boxes"]
         pil_image = Image.new('RGB', (image.shape[1], image.shape[0]), color=(0,255,0,0))
 
         rect_from_poly=[]
@@ -236,8 +165,7 @@ class BoxProcessor:
         savepath = os.path.join(debug_dir, "%s.jpg" % ('txt_overlay'))
         pil_image.save(savepath, format='JPEG', subsampling=0, quality=100)
 
-        return np.array(rect_from_poly), np.array(fragments), prediction_result["boxes"]    
-
+        return np.array(rect_from_poly), np.array(fragments), prediction_result   
 
     def process_full_extraction(self,id,image):
         """
@@ -245,7 +173,7 @@ class BoxProcessor:
         """
         print('Processing full page extraction: {}'.format(id))
 
-        debug_dir =  ensure_exists(os.path.join(self.work_dir,id,'boxes_full'))
+        debug_dir = ensure_exists(os.path.join(self.work_dir,id,'boxes_full'))
         crops_dir = ensure_exists(os.path.join(self.work_dir,id,'crops_full'))
 
         # # read image
@@ -260,13 +188,12 @@ class BoxProcessor:
             craft_net=self.craft_net,
             refine_net=self.refine_net,
             text_threshold=0.7,
-            link_threshold=0.4,
+            link_threshold=0.3,
             low_text=0.4,
             cuda=self.cuda,
             long_size=w #1280
         )
 
-        # output text only blocks
         # deepcopy image so that original is not altered
         image = copy.deepcopy(image)
         regions=prediction_result["boxes"]
@@ -287,10 +214,10 @@ class BoxProcessor:
 
             rect = cv2.boundingRect(poly)
             rect = np.array(rect).astype(np.int32)
-
             x,y,w,h = rect
-            if h < 15:
-                continue
+
+            # if h < 15:
+            #     continue
             
             snippet = crop_poly_low(image, poly)
             fragments.append(snippet)
@@ -304,4 +231,4 @@ class BoxProcessor:
         pil_image.save(savepath, format='JPEG', subsampling=0, quality=100)
 
         cv_img = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
-        return np.array(rect_from_poly), np.array(fragments), cv_img, prediction_result["boxes"]    
+        return np.array(rect_from_poly), np.array(fragments), cv_img, prediction_result 
