@@ -122,7 +122,7 @@ class BoxProcessor:
         prediction_result = get_prediction(
             image=image,
             craft_net=self.craft_net,
-            refine_net=self.refine_net,
+            refine_net=None, #self.refine_net,
             text_threshold=0.7,
             link_threshold=0.4,
             low_text=0.4,

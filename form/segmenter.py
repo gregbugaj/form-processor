@@ -599,23 +599,23 @@ class FormSegmeneter:
 def segment(img_path):
     print('Segment')
 
-    img_path='/home/greg/tmp/txt_overlay.png'
-    img_path='/home/greg/tmp/txt_overlay.jpg'
-    img_path='/home/greg/tmp/txt_overlay001.jpg'
-    snip = cv2.imread(img_path)
+    # img_path='/home/greg/tmp/txt_overlay.png'
+    # img_path='/home/greg/tmp/txt_overlay.jpg'
+    # img_path='/home/greg/tmp/txt_overlay001.jpg'
+    # snip = cv2.imread(img_path)
 
     work_dir='/tmp/form-segmentation'
     id = img_path.split('/')[-1]
     debug_dir = ensure_exists(os.path.join(work_dir, id, 'work'))
 
-    # icr = IcrProcessor(work_dir)
-    # icr.process('PID_10_5_0_3112.original.tif', 'HCFA02', snip)
+    # # icr = IcrProcessor(work_dir)
+    # # icr.process('PID_10_5_0_3112.original.tif', 'HCFA02', snip)
+
+    # # return 
+    boxer = BoxProcessor(work_dir, cuda=False)
+    # boxer.extract_bounding_boxes(id, 'HCFA33_BILLING', snip)
 
     # return 
-    boxer = BoxProcessor(work_dir, cuda=False)
-    boxer.extract_bounding_boxes(id, 'HCFA33_BILLING', snip)
-
-    return 
     
     segmenter = FormSegmeneter(work_dir, network="")
     seg_fragments, img, segmask = segmenter.segment(id, img_path)
@@ -774,8 +774,9 @@ if __name__ == '__main__':
     img_path ='/tmp/hicfa/images/PID_10_5_0_3202.original.tif'
     # img_path ='/tmp/hicfa/images/PID_10_5_0_3203.original.tif'
     
-    img_path='/tmp/hicfa/PID_10_5_0_3103.original.tif'
- 
+    # img_path='/tmp/hicfa/PID_10_5_0_3103.original.tif'
+    
+    img_path='/home/greg/tmp/task_3100-3199-2021_05_26_23_59_41-cvat/images/PID_10_5_0_3101.original.tif'
     segment(img_path)
  
     if False:
