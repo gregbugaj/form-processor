@@ -598,22 +598,29 @@ class FormSegmeneter:
 
 def segment(img_path):
     print('Segment')
+
+    img_path='/home/greg/tmp/txt_overlay.png'
+    img_path='/home/greg/tmp/txt_overlay.jpg'
+    img_path='/home/greg/tmp/txt_overlay001.jpg'
+    snip = cv2.imread(img_path)
+
     work_dir='/tmp/form-segmentation'
     id = img_path.split('/')[-1]
     debug_dir = ensure_exists(os.path.join(work_dir, id, 'work'))
-
-    # img_path='/tmp/form-segmentation/PID_10_5_0_3202.original.tif/bounding_boxes/HCFA02/crop'
-    # snip = cv2.imread(img_path)
 
     # icr = IcrProcessor(work_dir)
     # icr.process('PID_10_5_0_3112.original.tif', 'HCFA02', snip)
 
     # return 
+    boxer = BoxProcessor(work_dir, cuda=False)
+    boxer.extract_bounding_boxes(id, 'HCFA33_BILLING', snip)
 
+    return 
+    
     segmenter = FormSegmeneter(work_dir, network="")
     seg_fragments, img, segmask = segmenter.segment(id, img_path)
     
-    boxer = BoxProcessor(work_dir, cuda=False)
+    
     rectangles, box_fragment_imgs, overlay_img, _ = boxer.process_full_extraction(id, img)
     
     segmenter.fragment_to_box_snippet(id, seg_fragments, overlay_img)
@@ -644,7 +651,9 @@ def segment(img_path):
     # fragments['HCFA05_STATE']['clean'] = fp.process(img_path,fragments['HCFA05_STATE'])
     # fragments['HCFA05_ZIP']['clean'] = fp.process(img_path,fragments['HCFA05_ZIP'])
     # fragments['HCFA05_PHONE']['clean'] = fp.process(img_path,fragments['HCFA05_PHONE'])
+    
     seg_fragments['HCFA33_BILLING']['snippet_clean'] = fp.process(id, seg_fragments['HCFA33_BILLING'])
+
     # fragments['HCFA21']['clean'] = fp.process(img_path,fragments['HCFA21'])
     # clean_img=segmenter.build_clean_fragments(id, img, seg_fragments)
 
@@ -764,6 +773,8 @@ def segmentXX(img_path):
 if __name__ == '__main__':
     img_path ='/tmp/hicfa/images/PID_10_5_0_3202.original.tif'
     # img_path ='/tmp/hicfa/images/PID_10_5_0_3203.original.tif'
+    
+    img_path='/tmp/hicfa/PID_10_5_0_3103.original.tif'
  
     segment(img_path)
  
