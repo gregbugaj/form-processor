@@ -8,3 +8,7 @@ https://medium.com/srm-mic/color-segmentation-using-opencv-93efa7ac93e2
 ## Packaging
 
 https://pyscaffold.org/en/stable/index.html
+
+
+# Boxmodel
+https://github.com/gregbugaj/form-processor/commit/27e7e3b08a183ddc1308d2fa7d0ad652f2cbff3f
