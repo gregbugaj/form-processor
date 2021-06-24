@@ -1,4 +1,5 @@
 import math
+import time
 import numpy as np
 import copy
 import cv2
@@ -107,65 +108,78 @@ class BoxProcessor:
             return box array, fragment array , prediciton results
         """
         print('Extracting bounding boxes : {}, {}'.format(id, key))
-        
-        debug_dir = ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'debug'))
-        crops_dir = ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'crop'))
-        output_dir = ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'output'))
+        try:
+            debug_dir = ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'debug'))
+            crops_dir = ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'crop'))
+            output_dir = ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'output'))
 
-        image = resize_image(image, (image.shape[0] //2, image.shape[1] //2))
-        h=image.shape[0]
-        w=image.shape[1]
-        image=copy.deepcopy(image)
+            # if we downscale the input we get better text detection and segmenation
+            # this is due to how the binary morphology is being done in postprocessing
+            # TODO : need to implement this fully
+            downsized = False        
+            if image.shape[0] > 256:
+                downsized = True
+                image = cv2.resize(image, (image.shape[1]//2, image.shape[0]//2))
 
-        # run prediction for lines
-        # each line will be processed to partion into accurate boxes
-        prediction_result = get_prediction(
-            image=image,
-            craft_net=self.craft_net,
-            refine_net=None,
-            text_threshold=0.7,
-            link_threshold=0.4,
-            low_text=0.4,
-            cuda=self.cuda,
-            long_size=1028
-        )
-        
-        regions=prediction_result["boxes"]
-        # deepcopy image so that original is not altered
-        image = copy.deepcopy(image)
+            h=image.shape[0]
+            w=image.shape[1]
+            image = copy.deepcopy(image)
 
-        export_detected_regions(
-            image=image,
-            regions=regions,
-            output_dir=output_dir
-        )
-
-        pil_image = Image.new('RGB', (image.shape[1], image.shape[0]), color=(0,255,0,0))
-
-        rect_from_poly=[]
-        fragments=[]
-        for i, region in enumerate(regions):
-            region = np.array(region).astype(np.int32).reshape((-1))
-            region = region.reshape(-1, 2)
-            poly = region.reshape((-1, 1, 2))
-
-            box = cv2.boundingRect(poly)
-            box = np.array(box).astype(np.int32)
-            x,y,w,h = box
+            long_size = 1028
+            # run prediction for lines
+            # each line will be processed to partion into accurate boxes
+            prediction_result = get_prediction(
+                image=image,
+                craft_net=self.craft_net,
+                refine_net=None,
+                text_threshold=0.7,
+                link_threshold=0.4,
+                low_text=0.4,
+                cuda=self.cuda,
+                long_size=long_size
+            )
             
-            snippet = crop_poly_low(image, poly)
-            fragments.append(snippet)
-            rect_from_poly.append(box)
+            regions=prediction_result["boxes"]
+            # deepcopy image so that original is not altered
+            image = copy.deepcopy(image)
 
-            # export cropped region
-            file_path = os.path.join(crops_dir, "%s.jpg" % (i))
-            cv2.imwrite(file_path, snippet)
-            paste_fragment(pil_image, snippet, (x, y))
+            export_detected_regions(
+                image=image,
+                regions=regions,
+                output_dir=output_dir
+            )
 
-        savepath = os.path.join(debug_dir, "%s.jpg" % ('txt_overlay'))
-        pil_image.save(savepath, format='JPEG', subsampling=0, quality=100)
+            pil_image = Image.new('RGB', (image.shape[1], image.shape[0]), color=(0,255,0,0))
 
-        return np.array(rect_from_poly), np.array(fragments), prediction_result   
+            rect_from_poly=[]
+            fragments=[]
+            ms = int(time.time() * 1000)
+            for i, region in enumerate(regions):
+                region = np.array(region).astype(np.int32).reshape((-1))
+                region = region.reshape(-1, 2)
+                poly = region.reshape((-1, 1, 2))
+
+                box = cv2.boundingRect(poly)
+                box = np.array(box).astype(np.int32)
+                x,y,w,h = box
+                
+                snippet = crop_poly_low(image, poly)
+                fragments.append(snippet)
+                rect_from_poly.append(box)
+                
+                # export cropped region
+                file_path = os.path.join(crops_dir, "%s_%s.jpg" % (ms, i))
+                cv2.imwrite(file_path, snippet)
+                paste_fragment(pil_image, snippet, (x, y))
+
+            savepath = os.path.join(debug_dir, "%s.jpg" % ('txt_overlay'))
+            pil_image.save(savepath, format='JPEG', subsampling=0, quality=100)
+
+            return np.array(rect_from_poly), np.array(fragments), prediction_result   
+        except Exception as ident:
+            print(ident)
+
+        return np.array([]), np.array([]), None
 
     def process_full_extraction(self,id,image):
         """

@@ -2,28 +2,29 @@
 import os, sys
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
 
-
 import numpy as np
 import copy
 import cv2
 import numpy as np
 from PIL import Image
 
-import os
-
 import torch
 import torch.backends.cudnn as cudnn
 import torch.utils.data
 import torch.nn.functional as F
-import numpy as np
 from nltk.metrics.distance import edit_distance
 
 from icr.utils import CTCLabelConverter, AttnLabelConverter, Averager
-from icr.dataset import hierarchical_dataset, AlignCollate
+from icr.dataset import hierarchical_dataset, AlignCollate, RawDataset
 from icr.model import Model
+from icr.single_dataset import SingleDataset
+
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+# device = torch.device('cpu')
 
 from utils.resize_image import resize_image
+class Object(object):
+    pass
 
 def imwrite(path, img):
     try:
@@ -36,24 +37,254 @@ def ensure_exists(dir):
         os.makedirs(dir)   
     return dir
 
+# python3 eval.py 
+# --Transformation TPS 
+# --FeatureExtraction ResNet 
+# --SequenceModeling BiLSTM 
+# --Prediction Attn 
+# --image_folder   /tmp/form-segmentation/txt_overlay001.jpg/bounding_boxes/field/crop 
+# --saved_model ./saved_models/TPS-ResNet-BiLSTM-Attn-Seed1111/best_accuracy.pth --sensitive --imgH 32 --imgW 100
+
+# opt = Object()
+# opt.Transformation = 'TPS'
+# opt.FeatureExtraction = 'ResNet'
+# opt.SequenceModeling = 'BiLSTM'
+# opt.Prediction = 'Attn'
+# opt.saved_model = './models/icr/TPS-ResNet-BiLSTM-Attn/best_accuracy.pth'
+# opt.sensitive = True
+# opt.imgH = 32
+# opt.imgW = 100        
+# opt.character = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\]^_`{|}~'
+# opt.rgb = False
+# opt.num_fiducial = 20
+# opt.input_channel = 1
+# opt.output_channel = 512
+# opt.hidden_size = 256
+# opt.batch_max_length = 25
+# opt.batch_size = 192
+# opt.PAD = True
+# opt.rgb = False
+# opt.workers = 4
+# opt.num_gpu = 0
+# opt.image_folder = '/tmp/form-segmentation/txt_overlay001.jpg/bounding_boxes/field/crop'
+
+# icr_debug(opt)
+
+def icr_debug(opt):
+    """
+        ICR debug utility
+    """
+    if 'CTC' in opt.Prediction:
+        converter = CTCLabelConverter(opt.character)
+    else:
+        converter = AttnLabelConverter(opt.character)
+    opt.num_class = len(converter.character)
+
+    print('Evaluating on device : %s' %(device))
+    if opt.rgb:
+        opt.input_channel = 3
+    model = Model(opt)
+    print('model input parameters', opt.imgH, opt.imgW, opt.num_fiducial, opt.input_channel, opt.output_channel,
+          opt.hidden_size, opt.num_class, opt.batch_max_length, opt.Transformation, opt.FeatureExtraction,
+          opt.SequenceModeling, opt.Prediction)
+    model = torch.nn.DataParallel(model).to(device)
+
+    # load model
+    print('loading pretrained model from %s' % opt.saved_model)
+    model.load_state_dict(torch.load(opt.saved_model, map_location=device))
+
+    # setup data
+    AlignCollate_data = AlignCollate(imgH=opt.imgH, imgW=opt.imgW, keep_ratio_with_pad=opt.PAD)
+    eval_data = RawDataset(root=opt.image_folder, opt=opt)  # use RawDataset
+    eval_loader = torch.utils.data.DataLoader(
+        eval_data, batch_size=opt.batch_size,
+        shuffle=False,
+        num_workers=int(opt.workers),
+        collate_fn=AlignCollate_data, pin_memory=True)
+
+    # predict
+    model.eval()
+    with torch.no_grad():
+        for image_tensors, image_path_list in eval_loader:
+            batch_size = image_tensors.size(0)
+            image = image_tensors.to(device)
+            # For max length prediction
+            length_for_pred = torch.IntTensor([opt.batch_max_length] * batch_size).to(device)
+            text_for_pred = torch.LongTensor(batch_size, opt.batch_max_length + 1).fill_(0).to(device)
+
+            if 'CTC' in opt.Prediction:
+                preds = model(image, text_for_pred)
+
+                # Select max probabilty (greedy decoding) then decode index to character
+                preds_size = torch.IntTensor([preds.size(1)] * batch_size)
+                _, preds_index = preds.max(2)
+                # preds_index = preds_index.view(-1)
+                preds_str = converter.decode(preds_index, preds_size)
+
+            else:
+                preds = model(image, text_for_pred, is_train=False)
+
+                # select max probabilty (greedy decoding) then decode index to character
+                _, preds_index = preds.max(2)
+                preds_str = converter.decode(preds_index, length_for_pred)
+
+            log = open(f'./log_eval_result.txt', 'a')
+            dashed_line = '-' * 120
+            head = f'{"image_path":25s}\t{"predicted_labels":32s}\tconfidence score'
+            
+            print(f'{dashed_line}\n{head}\n{dashed_line}')
+            log.write(f'{dashed_line}\n{head}\n{dashed_line}\n')
+
+            preds_prob = F.softmax(preds, dim=2)
+            preds_max_prob, _ = preds_prob.max(dim=2)
+            for img_name, pred, pred_max_prob in zip(image_path_list, preds_str, preds_max_prob):
+                if 'Attn' in opt.Prediction:
+                    pred_EOS = pred.find('[s]')
+                    pred = pred[:pred_EOS]  # prune after "end of sentence" token ([s])
+                    pred_max_prob = pred_max_prob[:pred_EOS]
+
+                # calculate confidence score (= multiply of pred_max_prob)
+                confidence_score = pred_max_prob.cumprod(dim=0)[-1]
+
+                print(f'{img_name:25s}\t{pred:32s}\t{confidence_score:0.4f}')
+                log.write(f'{img_name:25s}\t{pred:32s}\t{confidence_score:0.4f}\n')
+
+            log.close()
 class IcrProcessor:
     def __init__(self,work_dir:str = '/tmp/form-segmentation', cuda: bool = False) -> None:
         print("ICR processor [cuda={}]".format(cuda))
         self.cuda = cuda
         self.work_dir = work_dir
-        self.__load()
+
+        opt = Object()
+        opt.Transformation = 'TPS'
+        opt.FeatureExtraction = 'ResNet'
+        opt.SequenceModeling = 'BiLSTM'
+        opt.Prediction = 'Attn'
+        opt.saved_model = './models/icr/TPS-ResNet-BiLSTM-Attn/best_accuracy.pth'
+        opt.sensitive = True
+        opt.imgH = 32
+        opt.imgW = 100        
+        opt.character = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\]^_`{|}~'
+        opt.rgb = False
+        opt.num_fiducial = 20
+        opt.input_channel = 1
+        opt.output_channel = 512
+        opt.hidden_size = 256
+        opt.batch_max_length = 48
+        opt.batch_size = 2 # Fixme: setting batch size to 1 will cause "TypeError: forward() missing 2 required positional arguments: 'input' and 'text'"
+        opt.PAD = True
+        opt.rgb = False
+        opt.workers = 4
+        opt.num_gpu = 0
+        opt.image_folder = '/tmp/form-segmentation/txt_overlay001.jpg/bounding_boxes/field/crop'
+
+        self.opt = opt
+        self.converter, self.model = self.__load()
+
+        cudnn.benchmark = True
+        cudnn.deterministic = True
 
     def __load(self):
+        """ model configuration """
+        opt=self.opt
+
+        if 'CTC' in opt.Prediction:
+            converter = CTCLabelConverter(opt.character)
+        else:
+            converter = AttnLabelConverter(opt.character)
+        opt.num_class = len(converter.character)
+
+        print('Evaluating on device : %s' %(device))
+        if opt.rgb:
+            opt.input_channel = 3
+        model = Model(opt)
+        print('model input parameters', opt.imgH, opt.imgW, opt.num_fiducial, opt.input_channel, opt.output_channel,
+            opt.hidden_size, opt.num_class, opt.batch_max_length, opt.Transformation, opt.FeatureExtraction,
+            opt.SequenceModeling, opt.Prediction)
+        model = torch.nn.DataParallel(model).to(device)
+
+        # load model
+        print('loading pretrained model from %s' % opt.saved_model)
+        model.load_state_dict(torch.load(opt.saved_model, map_location=device))
         
-        return None
+        return converter, model
 
     def process(self,id,key,image):
         """
             Process image via ICR
         """
         print('ICR processing : {}, {}'.format(id, key))
-
-        debug_dir =  ensure_exists(os.path.join(self.work_dir,id,'icr', key, 'debug'))
-        output_dir = ensure_exists(os.path.join(self.work_dir,id,'icr', key, 'output'))
-
+        # debug_dir =  ensure_exists(os.path.join(self.work_dir,id,'icr',key,'debug'))
+        # output_dir = ensure_exists(os.path.join(self.work_dir,id,'icr',key,'output'))
         
+        opt = self.opt
+        model = self.model
+        converter = self.converter
+        confidence_score = 0.0
+        txt = ''
+
+        # setup data
+        # Fixme: setting batch size to 1 will cause "TypeError: forward() missing 2 required positional arguments: 'input' and 'text'"
+        AlignCollate_data = AlignCollate(imgH=opt.imgH, imgW=opt.imgW, keep_ratio_with_pad=opt.PAD)
+        eval_data = SingleDataset(label=f'{id}-{key}', img=image, opt=opt) 
+        eval_loader = torch.utils.data.DataLoader(
+            eval_data, batch_size=opt.batch_size,
+            shuffle=False,
+            num_workers=int(opt.workers),
+            collate_fn=AlignCollate_data, pin_memory=True)
+
+        # predict
+        model.eval()
+        with torch.no_grad():
+            for image_tensors, image_labels in eval_loader:
+                batch_size = image_tensors.size(0)
+                image = image_tensors.to(device)
+
+                # For max length prediction
+                length_for_pred = torch.IntTensor([opt.batch_max_length] * batch_size).to(device)
+                text_for_pred = torch.LongTensor(batch_size, opt.batch_max_length + 1).fill_(0).to(device)
+
+                if 'CTC' in opt.Prediction:
+                    preds = model(image, text_for_pred)
+
+                    # Select max probabilty (greedy decoding) then decode index to character
+                    preds_size = torch.IntTensor([preds.size(1)] * batch_size)
+                    _, preds_index = preds.max(2)
+                    # preds_index = preds_index.view(-1)
+                    preds_str = converter.decode(preds_index, preds_size)
+
+                else:
+                    preds = model(image, text_for_pred, is_train=False)
+                    # select max probabilty (greedy decoding) then decode index to character
+                    _, preds_index = preds.max(2)
+                    preds_str = converter.decode(preds_index, length_for_pred)
+
+                log = open(f'./log_eval_result.txt', 'a')
+                dashed_line = '-' * 120
+                head = f'{"key":25s}\t{"predicted_labels":32s}\tconfidence score'
+                
+                print(f'{dashed_line}\n{head}\n{dashed_line}')
+                log.write(f'{dashed_line}\n{head}\n{dashed_line}\n')
+
+                preds_prob = F.softmax(preds, dim=2)
+                preds_max_prob, _ = preds_prob.max(dim=2)
+                # FIXME: setting batch size to 1 will cause "TypeError: forward() missing 2 required positional arguments: 'input' and 'text'"
+
+                for img_name, pred, pred_max_prob in zip(image_labels, preds_str, preds_max_prob):
+                    if 'Attn' in opt.Prediction:
+                        pred_EOS = pred.find('[s]')
+                        pred = pred[:pred_EOS]  # prune after "end of sentence" token ([s])
+                        pred_max_prob = pred_max_prob[:pred_EOS]
+
+                    # calculate confidence score (= multiply of pred_max_prob)
+                    confidence_score = pred_max_prob.cumprod(dim=0)[-1]
+                    txt = pred
+                    print(f'{img_name:25s}\t{pred:32s}\t{confidence_score:0.4f}')
+                    log.write(f'{img_name:25s}\t{pred:32s}\t{confidence_score:0.4f}\n')
+                    break # FIXME: setting batch size to 1 will cause "TypeError: forward() missing 2 required positional arguments: 'input' and 'text'"
+
+                log.close()
+        
+        confidence = confidence_score.item()
+        return txt,confidence

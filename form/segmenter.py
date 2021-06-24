@@ -9,7 +9,7 @@ from mpl_toolkits.mplot3d import Axes3D
 from matplotlib import cm
 from matplotlib import colors
 from matplotlib.colors import hsv_to_rgb, rgb_to_hsv
-from PIL import Image
+from PIL import ImageFont, ImageDraw, Image  
 import numpy as np
 from shutil import copy, copyfile
 import time
@@ -569,7 +569,6 @@ class FormSegmeneter:
         """
             Extract mask fragments into individual boxes based on the text overlay 
         """
-
         print('Processing  fragment_to_box_extraction: {}'.format(id))
         debug_dir =  ensure_exists(os.path.join(self.work_dir,id,'boxes_mask'))
         crops_dir = ensure_exists(os.path.join(self.work_dir,id,'crops_mask'))
@@ -597,6 +596,50 @@ class FormSegmeneter:
             
         return None
 
+def drawTrueTypeTextOnImage(cv2Image, text, xy, size, fillColor):
+    """
+    Print True Type fonts using PIL and convert image back into OpenCV
+    """
+    # Pass the image to PIL  
+    pil_im = Image.fromarray(cv2Image)  
+    draw = ImageDraw.Draw(pil_im)  
+    # use a truetype font  
+    fontFace = np.random.choice([ "FreeMono.ttf", "FreeMonoBold.ttf", "FreeMonoBold.ttf", "FreeSans.ttf"]) 
+    fontPath = os.path.join("./assets/fonts/truetype", "FreeMono.ttf")
+
+    font = ImageFont.truetype(fontPath, size)
+    draw.text(xy, text, font=font, fill=fillColor)  
+    # Make Numpy/OpenCV-compatible version
+    cv2Image = np.array(pil_im)
+    return cv2Image
+    
+def icr_extract(icr_processor, id, key, img, boxes, fragments):
+    """
+        Performs ICR extraction on the data
+    """
+    print('ICR : {}'.format(id))
+    print('shape : {}'.format(img.shape))
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    shape=img.shape
+    overlay_image = np.ones((shape[0], shape[1], 3), dtype = np.uint8)*255
+    debug_dir = ensure_exists(os.path.join('/tmp/icr',id))
+    work_dir = debug_dir
+    
+    for i, data in enumerate(zip(boxes, fragments)):
+        box, fragment = data
+        txt, confidence = icr_processor.process(id, str(i), fragment)
+        print('Processing box : {}, {}, {}'.format(box, txt, confidence))
+        conf_label = f'{confidence:0.4f}'
+        txt_label = txt
+        # cv2.rectangle(img=overlay_image, pt1=(box[0], box[1]), pt2=(box[0]+box[2], box[1]+box[3]),color=[0, 255, 0], thickness=-1)
+        # cv2.putText(overlay_image, conf_label, (box[0], box[1]+box[3]), font, .3, [0, 0, 255], 1, -1)
+        # cv2.putText(overlay_image, txt_label, (box[0], box[1] + box[3]//2), font, .5, [255, 0, 0], 1, -1)
+        overlay_image = drawTrueTypeTextOnImage(overlay_image, txt_label, (box[0], box[1] + box[3]//2), 18, (139,0,0))
+        overlay_image = drawTrueTypeTextOnImage(overlay_image, conf_label, (box[0], box[1]+box[3]), 10, (0,0,255))
+        
+    savepath=os.path.join(debug_dir, f'{key}-icr-result.png')
+    imwrite(savepath, overlay_image)
+
 def segment(img_path):
     print('Segment')
 
@@ -604,18 +647,12 @@ def segment(img_path):
     id = img_path.split('/')[-1]
     debug_dir = ensure_exists(os.path.join(work_dir, id, 'work'))
 
-    # img_path='/tmp/form-segmentation/PID_10_5_0_3101.original.tif/bounding_boxes/HCFA02/crop/0.jpg'
-    # snip = cv2.imread(img_path)
-    # icr = IcrProcessor(work_dir)
-    # icr.process('PID_10_5_0_3101.original.tif', 'HCFA02', snip)
-    # return 
-
     boxer = BoxProcessor(work_dir, cuda=False)
-    # boxer.extract_bounding_boxes(id, 'HCFA33_BILLING', snip)
-    
     segmenter = FormSegmeneter(work_dir, network="")
+    fp = FieldProcessor(work_dir)
+    icr = IcrProcessor(work_dir)
+
     seg_fragments, img, segmask = segmenter.segment(id, img_path)
-    
     rectangles, box_fragment_imgs, overlay_img, _ = boxer.process_full_extraction(id, img)
     segmenter.fragment_to_box_snippet(id, seg_fragments, overlay_img)
 
@@ -636,10 +673,9 @@ def segment(img_path):
     file_path = os.path.join(debug_dir, "text_over_segmask.png")
     cv2.imwrite(file_path, canvas_img)
 
-    fp = FieldProcessor(work_dir)
     # Same model
 
-    seg_fragments['HCFA02']['snippet_clean'] = fp.process(id, seg_fragments['HCFA02'])
+    # seg_fragments['HCFA02']['snippet_clean'] = fp.process(id, seg_fragments['HCFA02'])
     # seg_fragments['HCFA05_ADDRESS']['clean'] = fp.process(id,seg_fragments['HCFA05_ADDRESS'])
     # fragments['HCFA05_CITY']['clean'] = fp.process(img_path,fragments['HCFA05_CITY'])
     # fragments['HCFA05_STATE']['clean'] = fp.process(img_path,fragments['HCFA05_STATE'])
@@ -651,137 +687,17 @@ def segment(img_path):
     # fragments['HCFA21']['clean'] = fp.process(img_path,fragments['HCFA21'])
     # clean_img=segmenter.build_clean_fragments(id, img, seg_fragments)
 
-    boxer.extract_bounding_boxes(id, 'HCFA02', seg_fragments['HCFA02']['snippet_clean'])
+    # boxes, fragments, _=boxer.extract_bounding_boxes(id, 'HCFA02', seg_fragments['HCFA02']['snippet_clean'])
     # boxer.extract_bounding_boxes(id, 'HCFA33_BILLING', seg_fragments['HCFA33_BILLING']['snippet_clean'])
 
-def segment_icr(img_path):
-    print('Segment')
-    work_dir='/tmp/form-segmentation'
-    id = img_path.split('/')[-1]
-    debug_dir = ensure_exists(os.path.join(work_dir, id, 'work'))
+    field = ['HCFA02', 'HCFA33_BILLING', 'HCFA05_ADDRESS', 'HCFA05_CITY', 'HCFA05_STATE', 'HCFA05_ZIP', 'HCFA05_PHONE']
 
-    img_path='/tmp/form-segmentation/PID_10_5_0_3112.original.tif/fields_debug/HCFA02/segmenation_fake.png'
-    snip = cv2.imread(img_path)
-
-    boxer = BoxProcessor(work_dir, cuda=True)
-    bb_words, bb_images, _= boxer.extract_bounding_boxes('PID_10_5_0_3112.original.tif', 'HCFA02', snip)
-
-    icr = IcrProcessor(work_dir)
-    icr.process('PID_10_5_0_3112.original.tif', 'HCFA02', snip)
-    
-    return 
-
-    segmenter = FormSegmeneter(work_dir, network="")
-    seg_fragments, img, segmask = segmenter.segment(id, img_path)
-    
-    boxer = BoxProcessor(work_dir, cuda=True)
-    rectangles, box_fragment_imgs, overlay_img, _ = boxer.process_full_extraction(id, img)
-    
-    segmenter.fragment_to_box_snippet(id, seg_fragments, overlay_img)
-
-    print('-------- Image information -----------')
-    print('img         : {}'.format(img.shape))
-    print('overlay_img : {}'.format(overlay_img.shape))
-    print('segmask     : {}'.format(segmask.shape))
-
-    shape=img.shape
-    alpha = 0.5  
-    h=shape[0]
-    w=shape[1]
-
-    canvas_img = np.ones((h, w, 3), np.uint8) * 255 # white canvas
-    canvas_img = cv2.addWeighted(canvas_img, alpha, segmask, 1 - alpha, 0)
-    canvas_img = cv2.addWeighted(canvas_img, alpha, overlay_img, 1 - alpha, 0)
-
-    file_path = os.path.join(debug_dir, "text_over_segmask.png")
-    cv2.imwrite(file_path, canvas_img)
-
-    fp = FieldProcessor(work_dir='/tmp/form-segmentation')
-    # Same model
-    seg_fragments['HCFA02']['clean'] = fp.process(id,seg_fragments['HCFA02'])
-
-    boxer.extract_bounding_boxes(seg_fragments['HCFA02']['snippet_overlay'] )
-
-    # seg_fragments['HCFA05_ADDRESS']['clean'] = fp.process(id,seg_fragments['HCFA05_ADDRESS'])
-
-    # fragments['HCFA05_CITY']['clean'] = fp.process(img_path,fragments['HCFA05_CITY'])
-    # fragments['HCFA05_STATE']['clean'] = fp.process(img_path,fragments['HCFA05_STATE'])
-    # fragments['HCFA05_ZIP']['clean'] = fp.process(img_path,fragments['HCFA05_ZIP'])
-    # fragments['HCFA05_PHONE']['clean'] = fp.process(img_path,fragments['HCFA05_PHONE'])
-
-    # fragments['HCFA33_BILLING']['clean'] = fp.process(img_path,fragments['HCFA33_BILLING'])
-    # fragments['HCFA21']['clean'] = fp.process(img_path,fragments['HCFA21'])
-    
-    # clean_img=segmenter.build_clean_fragments(id, img, seg_fragments)
-
-
-def segmentXX(img_path):
-    print('Segment')
-    
-    # snip = cv2.imread(src)
-    # boxer = BoxProcessor()
-    # boxer.process(snip)
-    work_dir='/tmp/form-segmentation'
-
-    segmenter = FormSegmeneter(work_dir, network="")
-    fragments = segmenter.segment(img_path)
-
-    return
-    fp = FieldProcessor(work_dir='/tmp/form-segmentation')
-    # Same model
-    fragments['HCFA02']['clean'] = fp.process(img_path,fragments['HCFA02'])
-    # fragments['HCFA05_ADDRESS']['clean'] = fp.process(img_path,fragments['HCFA05_ADDRESS'])
-    # fragments['HCFA05_CITY']['clean'] = fp.process(img_path,fragments['HCFA05_CITY'])
-    # fragments['HCFA05_STATE']['clean'] = fp.process(img_path,fragments['HCFA05_STATE'])
-    # fragments['HCFA05_ZIP']['clean'] = fp.process(img_path,fragments['HCFA05_ZIP'])
-    # fragments['HCFA05_PHONE']['clean'] = fp.process(img_path,fragments['HCFA05_PHONE'])
-
-    # fragments['HCFA33_BILLING']['clean'] = fp.process(img_path,fragments['HCFA33_BILLING'])
-    # fragments['HCFA21']['clean'] = fp.process(img_path,fragments['HCFA21'])
-    
-    clean_img=segmenter.build_clean_fragments(img_path, fragments)
-
-    boxer = BoxProcessor()
-    # boxer.process(snip)
-
-    name = img_path.split('/')[-1]
-    work_dir = os.path.join(work_dir, name)
-    debug_dir = os.path.join(work_dir, 'boxes')
-
-    ensure_exists(debug_dir)
-
-    for key in fragments.keys():
-        frag = fragments[key]
-        print(frag)
-
-        if 'clean' in frag:
-            snip = frag['clean']
-            print(snip.shape)
-            detection = boxer.process(snip)
-
-            tm = time.time_ns()
-            name = img_path.split('/')[-1]
-            savepath = os.path.join(debug_dir, "%s-%s.jpg" % ('clean_overlay' , tm))
-            imwrite(savepath, detection)
-
-def icr(id, img, boxes, fragments):
-    print('ICR : {}'.format(id))
-    print('shape : {}'.format(img.shape))
-
-    shape=img.shape
-    block_img = np.ones((shape[0], shape[1]), dtype = np.uint8)*255
-    debug_dir = ensure_exists(os.path.join('/tmp/icr',id))
-
-    # label = '{label} ({id})'.format(id=val, label=key)
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    for i, data in enumerate(zip(boxes, fragments)):
-        box, fragment = data
-        print('Processing box : {}'.format(box))
-        label = 'Conf:.0001'
-        cv2.putText(block_img, label, (box[0], box[1]), font, .4, (0, 0, 0), 1, cv2.LINE_AA)
-
-    savepath=os.path.join(debug_dir, "icr-result.jpg")
-    imwrite(savepath, block_img)
+    for field in field:
+        print(f'Processing field : {field}')
+        seg_fragments[field]['snippet_clean'] = fp.process(id, seg_fragments[field])
+        snippet = seg_fragments[field]['snippet_clean']
+        boxes, fragments, _ = boxer.extract_bounding_boxes(id, field, snippet)
+        icr_extract(icr, id, field, snippet, boxes, fragments)
    
 if __name__ == '__main__':
     img_path ='/tmp/hicfa/images/PID_10_5_0_3202.original.tif'
@@ -791,31 +707,32 @@ if __name__ == '__main__':
     
     img_path='/home/greg/tmp/task_3100-3199-2021_05_26_23_59_41-cvat/images/PID_10_5_0_3101.original.tif'
     img_path='/home/greg/tmp/task_3100-3199-2021_05_26_23_59_41-cvat/images/PID_10_5_0_3102.original.tif' # rotated
-    img_path='/home/greg/tmp/task_3100-3199-2021_05_26_23_59_41-cvat/images/PID_10_5_0_3103.original.tif'
+    img_path='/home/greg/tmp/PID_10_5_0_3104.original.tif'
+    img_path='/home/greg/tmp/PID_10_5_0_3101.original.tif'
+    img_path='/home/greg/tmp/PID_10_5_0_3103.original.tif'
     
-    segment(img_path)
+    # segment(img_path)
 
     if False:
         work_dir='/tmp/form-segmentation'
         boxer = BoxProcessor(work_dir, cuda=False)
 
         import glob
-        for name in glob.glob('/home/greg/tmp/snippets/*.png'):
+        for name in glob.glob('/home/greg/tmp/single/*.jpg'):
             print(name)
             id = name.split('/')[-1]
             debug_dir = ensure_exists(os.path.join(work_dir, id, 'work'))
             snip = read_image(name)
             if snip is None:
                 continue
-
             boxes, fragments, _= boxer.extract_bounding_boxes(id, 'field', snip)
+            icr(id, snip, boxes, fragments)
 
-            # icr(id, snip, boxes, fragments)
-            # break
-
-    if False:
+    if True:
         import glob
-        for name in glob.glob('/tmp/hicfa/images/*.tif'):
-            print(name)
-            segment(name)
-            # break
+        for name in glob.glob('/tmp/hicfa/*.tif'):
+            try:
+                print(name)
+                segment(name)
+            except Exception as ident:
+                print(ident)

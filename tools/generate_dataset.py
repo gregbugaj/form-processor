@@ -438,9 +438,3 @@ for i in tqdm(range(num_imgs)):
         write_images(img, noisy_img, debug_img)
     except Exception as e:
         print(e)
-
-    '''
-    cv2.imshow('textonimage', original)
-    cv2.imshow('noisy_img', noisy_img)
-    cv2.waitKey()
-    '''
