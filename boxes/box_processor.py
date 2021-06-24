@@ -117,7 +117,7 @@ class BoxProcessor:
             # this is due to how the binary morphology is being done in postprocessing
             # TODO : need to implement this fully
             downsized = False        
-            if image.shape[0] > 256:
+            if image.shape[0] > 200:
                 downsized = True
                 image = cv2.resize(image, (image.shape[1]//2, image.shape[0]//2))
 
@@ -125,7 +125,7 @@ class BoxProcessor:
             w=image.shape[1]
             image = copy.deepcopy(image)
 
-            long_size = 1028
+            long_size = w * 2
             # run prediction for lines
             # each line will be processed to partion into accurate boxes
             prediction_result = get_prediction(
