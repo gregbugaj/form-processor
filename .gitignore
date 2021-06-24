@@ -2,6 +2,14 @@
 assets-gen
 assets-private
 
+models/icr/
+models/segmenter/
+models/text_detector/
+
+env
+log_eval_result.txt
+
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[cod]
