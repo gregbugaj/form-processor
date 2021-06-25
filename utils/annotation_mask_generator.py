@@ -175,7 +175,11 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file, remap_dir):
 
     for element in xmlTree.findall("image"):
         name = element.attrib['name']
-        mappped_images = element.attrib['mapped_images']
+
+        mappped_images = ''       
+        if 'mapped_images' in element.attrib:
+            mappped_images = element.attrib['mapped_images']
+        
         polygons = element.findall("polygon")
         boxes = element.findall("box")
         filename = name.split('/')[-1]
@@ -218,8 +222,8 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file, remap_dir):
                     continue
                 points.append(pts)
                 colors.append(colormap[label])
-
-        data['ds'].append({'name': filename, 'points': points, 'color':colors, 'mapped':1}) 
+        
+        data['ds'].append({'name': filename, 'points': points, 'color':colors, 'mapped': 0 if mappped_images == '' else 1}) 
 
         for filename in mappped_images.split(',') :
             data['ds'].append({'name': filename, 'points': points, 'color':colors, 'mapped':0}) 
@@ -333,24 +337,51 @@ def remap(dir_src, dir_dest, cvat_annotation_file, remap_dir):
     print(remap_file)
     with open(remap_file, 'wb') as f:
         xmlTree.write(f, encoding='utf-8')
+
+
+def validate_annoations(cvat_annotation_file):
+    print('Validating XML annotations')
+    print("xml : {}".format(cvat_annotation_file))
+    xmlTree = ET.parse(cvat_annotation_file)
+
+    for element in xmlTree.findall("image"):
+        name = element.attrib['name']
+        polygons = element.findall("polygon")
+        boxes = element.findall("box")
+        labelmap = dict()
+        for polygon_node in polygons:
+            label = polygon_node.attrib['label']
+            if label in labelmap:
+                msg = f'Duplicate label detected  [{name} : {label}]'
+                print (msg)
+            labelmap[label] = True
         
-    print(xmlTree)
+    print('Validation completed')        
+
 if __name__ == '__main__':
     root_src = '../assets-private/cvat/task_3100-3199-2021_05_26_23_59_41-cvat'
     # root_src = '../assets-private/cvat/task_3200-3299-2021_05_27_00_43_52-cvat'
     # root_src = '../assets-private/cvat/task_3300-3399-2021_05_27_14_23_55-cvat' ## TEST SET
     # root_src = '../assets-private/cvat/task_3400-3499-2021_05_27_14_28_26-cvat'
+
     root_src = '../assets-private/cvat/task_redactedAllFields'
+    root_src = '/home/greg/dev/assets-private/cvat/TRAINING-ON-DD-GPU/task_redacted-wide-2021_06_23_19_21_27-cvat'
+    # root_src = '/home/greg/dev/assets-private/cvat/TRAINING-ON-DD-GPU/task_redacted_20-2021_06_22_18_19_51-cvat'
+    root_src = '/home/greg/dev/assets-private/cvat/TRAINING-ON-DD-GPU/task_redacted-wide-2021_06_24_22_14_17-cvat_box33'
 
     dir_src = os.path.join(root_src, 'images')
     dir_dest  = os.path.join(root_src, 'output')
     dir_dest_split  = os.path.join(root_src, 'output_split')
     cvat_annotation_file=os.path.join(root_src, 'annotations.xml') 
-    cvat_annotation_file=os.path.join(root_src, 'remap.xml') 
     remap_src = os.path.join(root_src, 'remap')
+    
+    validate_annoations(cvat_annotation_file)
+    
+    # cvat_annotation_file=os.path.join(root_src, 'remap.xml') 
 
     # remap(root_src , dir_dest, cvat_annotation_file, remap_src)
+
     create_mask(dir_src, dir_dest, cvat_annotation_file, remap_src)
-    split_dir(dir_dest, dir_dest_split)
+    # split_dir(dir_dest, dir_dest_split)
 
 # python ./datasets/prepare_patches_dataset.py  --input_dir ./datasets/hicfa_form --output_dir ./datasets/hicfa_form/ready

@@ -12,3 +12,6 @@ https://pyscaffold.org/en/stable/index.html
 
 # Boxmodel
 https://github.com/gregbugaj/form-processor/commit/27e7e3b08a183ddc1308d2fa7d0ad652f2cbff3f
+
+## Form not merged correcly
+PID_10_5_0_3102.original.tif

@@ -85,6 +85,7 @@ def paste_fragment(overlay, fragment, pos=(0,0)):
     fragment = cv2.cvtColor(fragment, cv2.COLOR_BGR2RGB)
     fragment_pil = Image.fromarray(fragment)
     overlay.paste(fragment_pil, pos)
+    
 
 def make_power_2(img, base, method=Image.BICUBIC):
     ow, oh = img.size
@@ -731,7 +732,7 @@ if __name__ == '__main__':
     if True:
         import glob
         # for name in glob.glob('/tmp/hicfa/*.tif'):
-        for name in glob.glob('/home/greg/tmp/task_3100-3199-2021_05_26_23_59_41-cvat/images/PID_10_5_0_3155.original.tif'):
+        for name in glob.glob('/home/greg/tmp/task_3100-3199-2021_05_26_23_59_41-cvat/images/PID_10_5_0_3102.original.tif'):
             try:
                 print(name)
                 segment(name)

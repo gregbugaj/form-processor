@@ -1,29 +1,47 @@
-import math
-import time
-import numpy as np
-import copy
-import cv2
-import numpy as np
-from PIL import Image
-
+# -*- coding: utf-8 -*-
 # Add parent to the search path so we can reference the modules(craft, pix2pix) here without throwing and exception 
 import os, sys
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
 
-from craft_text_detector import Craft
+import time
 
-# import craft functions
-from craft_text_detector import (
-    read_image,
-    load_craftnet_model,
-    load_refinenet_model,
-    get_prediction,
-    export_detected_regions,
-    export_extra_results,
-    empty_cuda_cache
-)
+import torch
+import torch.nn as nn
+import torch.backends.cudnn as cudnn
+from torch.autograd import Variable
 
+from PIL import Image
 from utils.resize_image import resize_image
+
+import time
+import numpy as np
+import copy
+
+import cv2
+from skimage import io
+import numpy as np
+import craft.craft_utils
+import craft.imgproc
+import craft.file_utils
+import json
+import zipfile
+
+from craft.craft import CRAFT
+
+from collections import OrderedDict
+def copyStateDict(state_dict):
+    if list(state_dict.keys())[0].startswith("module"):
+        start_idx = 1
+    else:
+        start_idx = 0
+    new_state_dict = OrderedDict()
+    for k, v in state_dict.items():
+        name = ".".join(k.split(".")[start_idx:])
+        new_state_dict[name] = v
+    return new_state_dict
+
+def str2bool(v):
+    return v.lower() in ("yes", "y", "true", "t", "1")
 
 def make_power_2(img, base, method=Image.BICUBIC):
     ow, oh = img.size
@@ -88,8 +106,64 @@ def paste_fragment(overlay, fragment, pos=(0,0)):
     fragment = cv2.cvtColor(fragment, cv2.COLOR_BGR2RGB)
     fragment_pil = Image.fromarray(fragment)
     overlay.paste(fragment_pil, pos) 
+
+
+def get_prediction(craft_net, image, text_threshold, link_threshold, low_text, cuda, poly, canvas_size, mag_ratio, refine_net=None):
+    net = craft_net
+    show_time = True
+    t0 = time.time()
+
+    # resize
+    img_resized, target_ratio, size_heatmap = craft.imgproc.resize_aspect_ratio(image, canvas_size, interpolation=cv2.INTER_LINEAR, mag_ratio= mag_ratio)
+    ratio_h = ratio_w = 1 / target_ratio
+
+    # preprocessing
+    x = craft.imgproc.normalizeMeanVariance(img_resized)
+    x = torch.from_numpy(x).permute(2, 0, 1)    # [h, w, c] to [c, h, w]
+    x = Variable(x.unsqueeze(0))                # [c, h, w] to [b, c, h, w]
+    if cuda:
+        x = x.cuda()
+
+    # forward pass
+    with torch.no_grad():
+        y, feature = net(x)
+
+    # make score and link map
+    score_text = y[0,:,:,0].cpu().data.numpy()
+    score_link = y[0,:,:,1].cpu().data.numpy()
+
+    # refine link
+    if refine_net is not None:
+        with torch.no_grad():
+            y_refiner = refine_net(y, feature)
+        score_link = y_refiner[0,:,:,0].cpu().data.numpy()
+
+    t0 = time.time() - t0
+    t1 = time.time()
+
+    # Post-processing
+    boxes, polys = craft.craft_utils.getDetBoxes(score_text, score_link, text_threshold, link_threshold, low_text, poly)
+
+    # coordinate adjustment
+    boxes = craft.craft_utils.adjustResultCoordinates(boxes, ratio_w, ratio_h)
+    polys = craft.craft_utils.adjustResultCoordinates(polys, ratio_w, ratio_h)
+    for k in range(len(polys)):
+        if polys[k] is None: polys[k] = boxes[k]
+
+    t1 = time.time() - t1
+
+    # render results (optional)
+    render_img = score_text.copy()
+    render_img = np.hstack((render_img, score_link))
+    ret_score_text = craft.imgproc.cvt2HeatmapImg(render_img)
+
+    if show_time : print("\ninfer/postproc time : {:.3f}/{:.3f}".format(t0, t1))
+
+    return boxes, polys, ret_score_text
+
+
 class BoxProcessor:
-    def __init__(self,work_dir:str = '/tmp/form-segmentation', cuda: bool = False) -> None:
+    def __init__(self, work_dir:str = '/tmp/form-segmentation', cuda: bool = False) -> None:
         print("Box processor [cuda={}]".format(cuda))
         self.cuda = cuda
         self.work_dir = work_dir
@@ -97,10 +171,47 @@ class BoxProcessor:
 
     def __load(self):
         # load models
-        refine_net = load_refinenet_model(cuda=self.cuda)
-        craft_net = load_craftnet_model(cuda=self.cuda)
+        args = Object()
+        args.trained_model='./models/craft/craft_mlt_25k.pth'
+        args.refiner_model='./models/craft/craft_refiner_CTW1500.pth'
 
-        return craft_net, refine_net
+        cuda = self.cuda
+        refine = True
+        # load net
+        net = CRAFT()     # initialize
+
+        print('Loading weights from checkpoint (' + args.trained_model + ')')
+        if cuda:
+            net.load_state_dict(copyStateDict(torch.load(args.trained_model)))
+        else:
+            net.load_state_dict(copyStateDict(torch.load(args.trained_model, map_location='cpu')))
+
+        if cuda:
+            net = net.cuda()
+            net = torch.nn.DataParallel(net)
+            cudnn.benchmark = False        
+
+        net.eval()
+
+        # LinkRefiner
+        refine_net = None
+        if refine:
+            from craft.refinenet import RefineNet
+            refine_net = RefineNet()
+            print('Loading weights of refiner from checkpoint (' + args.refiner_model + ')')
+            if cuda:
+                refine_net.load_state_dict(copyStateDict(torch.load(args.refiner_model)))
+                refine_net = refine_net.cuda()
+                refine_net = torch.nn.DataParallel(refine_net)
+            else:
+                refine_net.load_state_dict(copyStateDict(torch.load(args.refiner_model, map_location='cpu')))
+
+            refine_net.eval()
+            args.poly = True
+
+        t = time.time()
+
+        return net, refine_net
 
     def extract_bounding_boxes(self,id,key,image):
         """
@@ -113,22 +224,23 @@ class BoxProcessor:
             crops_dir = ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'crop'))
             output_dir = ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'output'))
 
+            print(f'debug_dir : {debug_dir}')
+            print(f'crops_dir : {crops_dir}')
+            print(f'output_dir : {output_dir}')
+
             # if we downscale the input we get better text detection and segmenation
             # this is due to how the binary morphology is being done in postprocessing
             # TODO : need to implement this fully
-            downsized = False        
-            if image.shape[0] > 200:
-                downsized = True
-                image = cv2.resize(image, (image.shape[1]//2, image.shape[0]//2))
+            # downsized = False        
+            # if image.shape[0] > 200:
+            #     downsized = True
+            #     image = cv2.resize(image, (image.shape[1]//2, image.shape[0]//2))
 
             h=image.shape[0]
             w=image.shape[1]
             image = copy.deepcopy(image)
 
-            long_size = w * 2
-            # run prediction for lines
-            # each line will be processed to partion into accurate boxes
-            prediction_result = get_prediction(
+            bboxes, polys, score_text = get_prediction(
                 image=image,
                 craft_net=self.craft_net,
                 refine_net=None,
@@ -136,24 +248,37 @@ class BoxProcessor:
                 link_threshold=0.4,
                 low_text=0.4,
                 cuda=self.cuda,
-                long_size=long_size
+                poly=True,
+                canvas_size=1280, 
+                mag_ratio=1.5
             )
             
-            regions=prediction_result["boxes"]
+            prediction_result = dict()
+            prediction_result['bboxes'] = bboxes
+            prediction_result['polys'] = polys
+            prediction_result['heatmap'] = score_text
+            
+            result_folder = './result/'
+            if not os.path.isdir(result_folder):
+                os.mkdir(result_folder)
+
+            # save score text
+            # filename, file_ext = os.path.splitext(os.path.basename(image_path))
+            filename = id
+            mask_file = result_folder + "/res_" + filename + '_mask.jpg'
+            cv2.imwrite(mask_file, score_text)
+
+            # craft.file_utils.saveResult(image_path, image[:,:,::-1], polys, dirname=result_folder)
+
+            regions = bboxes # prediction_result["boxes"]
             # deepcopy image so that original is not altered
             image = copy.deepcopy(image)
-
-            export_detected_regions(
-                image=image,
-                regions=regions,
-                output_dir=output_dir
-            )
-
             pil_image = Image.new('RGB', (image.shape[1], image.shape[0]), color=(0,255,0,0))
 
-            rect_from_poly=[]
-            fragments=[]
+            rect_from_poly = []
+            fragments = []
             ms = int(time.time() * 1000)
+
             for i, region in enumerate(regions):
                 region = np.array(region).astype(np.int32).reshape((-1))
                 region = region.reshape(-1, 2)
@@ -175,7 +300,7 @@ class BoxProcessor:
             savepath = os.path.join(debug_dir, "%s.jpg" % ('txt_overlay'))
             pil_image.save(savepath, format='JPEG', subsampling=0, quality=100)
 
-            return np.array(rect_from_poly), np.array(fragments), prediction_result   
+            return np.array(rect_from_poly), np.array(fragments), prediction_result
         except Exception as ident:
             print(ident)
 
@@ -197,7 +322,7 @@ class BoxProcessor:
         image=copy.deepcopy(image)
 
         # perform prediction
-        prediction_result = get_prediction(
+        bboxes, polys, score_text = get_prediction(
             image=image,
             craft_net=self.craft_net,
             refine_net=self.refine_net,
@@ -205,12 +330,19 @@ class BoxProcessor:
             link_threshold=0.3,
             low_text=0.4,
             cuda=self.cuda,
-            long_size=w #1280
+            poly=True,
+            canvas_size=1280, 
+            mag_ratio=1.5
         )
-
+        
+        prediction_result = dict()
+        prediction_result['bboxes'] = bboxes
+        prediction_result['polys'] = polys
+        prediction_result['heatmap'] = score_text
+        
         # deepcopy image so that original is not altered
         image = copy.deepcopy(image)
-        regions=prediction_result["boxes"]
+        regions = bboxes
 
         # convert imaget to BGR color
         image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
@@ -246,3 +378,91 @@ class BoxProcessor:
 
         cv_img = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
         return np.array(rect_from_poly), np.array(fragments), cv_img, prediction_result 
+
+
+
+class Object(object):
+    pass 
+
+if __name__ == '__main__':
+
+    img_path='/home/greg/dev/form-processor/craft-test/padded_snippet-HCFA02.jpg'
+    image = cv2.imread(img_path)
+
+    boxer = BoxProcessor(work_dir='/tmp/form-segmentation')
+    boxer.extract_bounding_boxes('test', 'key', image)
+    
+    os.exit()
+
+    args = Object()
+    args.cuda=False
+    args.refine = False
+
+    args.trained_model='./models/craft/craft_mlt_25k.pth'
+    args.refiner_model='./models/craft/craft_refiner_CTW1500.pth'
+    args.test_folder='./craft-test'
+    args.mag_ratio= 1.5
+    args.canvas_size= 1280
+    args.text_threshold= 0.7
+    args.low_text= 0.4
+    args.link_threshold= 0.4
+    args.show_time= True
+    args.poly= True
+
+    # load net
+    net = CRAFT()     # initialize
+
+    print('Loading weights from checkpoint (' + args.trained_model + ')')
+    if args.cuda:
+        net.load_state_dict(copyStateDict(torch.load(args.trained_model)))
+    else:
+        net.load_state_dict(copyStateDict(torch.load(args.trained_model, map_location='cpu')))
+
+    if args.cuda:
+        net = net.cuda()
+        net = torch.nn.DataParallel(net)
+        cudnn.benchmark = False        
+
+    net.eval()
+
+    # LinkRefiner
+    refine_net = None
+    if args.refine:
+        from craft.refinenet import RefineNet
+        refine_net = RefineNet()
+        print('Loading weights of refiner from checkpoint (' + args.refiner_model + ')')
+        if args.cuda:
+            refine_net.load_state_dict(copyStateDict(torch.load(args.refiner_model)))
+            refine_net = refine_net.cuda()
+            refine_net = torch.nn.DataParallel(refine_net)
+        else:
+            refine_net.load_state_dict(copyStateDict(torch.load(args.refiner_model, map_location='cpu')))
+
+        refine_net.eval()
+        args.poly = True
+
+    t = time.time()
+
+
+    """ For test images in a folder """
+    image_list, _, _ = craft.file_utils.get_files(args.test_folder)
+
+    result_folder = './result/'
+    if not os.path.isdir(result_folder):
+        os.mkdir(result_folder)
+
+    # load data
+    for k, image_path in enumerate(image_list):
+        print("Test image {:d}/{:d}: {:s}".format(k+1, len(image_list), image_path), end='\r')
+        image = craft.imgproc.loadImage(image_path)
+
+        bboxes, polys, score_text = test_net(net, image, args.text_threshold, args.link_threshold, args.low_text, args.cuda, args.poly, refine_net)
+
+        # save score text
+        filename, file_ext = os.path.splitext(os.path.basename(image_path))
+        mask_file = result_folder + "/res_" + filename + '_mask.jpg'
+        cv2.imwrite(mask_file, score_text)
+
+        craft.file_utils.saveResult(image_path, image[:,:,::-1], polys, dirname=result_folder)
+
+    print("elapsed time : {}s".format(time.time() - t))
