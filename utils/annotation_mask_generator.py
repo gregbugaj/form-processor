@@ -293,7 +293,7 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file, remap_dir):
             imwrite(path_dest_overlay, overlay_img)
 
             # Apply transformations to the image
-            aug_images, aug_masks = augment_image(img, mask_img, pts, 5)
+            aug_images, aug_masks = augment_image(img, mask_img, pts, 10)
 
             assert len(aug_images) == len(aug_masks)
 
@@ -327,7 +327,7 @@ def remap(dir_src, dir_dest, cvat_annotation_file, remap_dir):
         parts = element.attrib['name'].split('.')
         name = '.'.join(parts[:-1])
         img_dir = os.path.join(remap_dir, name)
-        print(img_dir)
+        print(f'Remap dir : {img_dir}')
         if os.path.exists(img_dir):
             found_images = glob.glob(img_dir+'/*.png', recursive=False)
             names = [img.split('/')[-1] for img in found_images]
@@ -343,7 +343,8 @@ def validate_annoations(cvat_annotation_file):
     print('Validating XML annotations')
     print("xml : {}".format(cvat_annotation_file))
     xmlTree = ET.parse(cvat_annotation_file)
-
+    
+    has_dupes = False
     for element in xmlTree.findall("image"):
         name = element.attrib['name']
         polygons = element.findall("polygon")
@@ -354,8 +355,11 @@ def validate_annoations(cvat_annotation_file):
             if label in labelmap:
                 msg = f'Duplicate label detected  [{name} : {label}]'
                 print (msg)
+                has_dupes = True
             labelmap[label] = True
         
+    if has_dupes:
+        raise Exception('Validation failed')
     print('Validation completed')        
 
 if __name__ == '__main__':
@@ -368,6 +372,8 @@ if __name__ == '__main__':
     root_src = '/home/greg/dev/assets-private/cvat/TRAINING-ON-DD-GPU/task_redacted-wide-2021_06_23_19_21_27-cvat'
     # root_src = '/home/greg/dev/assets-private/cvat/TRAINING-ON-DD-GPU/task_redacted_20-2021_06_22_18_19_51-cvat'
     root_src = '/home/greg/dev/assets-private/cvat/TRAINING-ON-DD-GPU/task_redacted-wide-2021_06_24_22_14_17-cvat_box33'
+    root_src = '/home/greg/dev/assets-private/cvat/TRAINING-ON-DD-GPU/task_redacted_20-2021_06_22_18_19_51-cvat'
+    root_src = '/home/greg/dev/assets-private/cvat/TRAINING-ON-DD-GPU/hicfa-forms'
 
     dir_src = os.path.join(root_src, 'images')
     dir_dest  = os.path.join(root_src, 'output')
@@ -376,12 +382,12 @@ if __name__ == '__main__':
     remap_src = os.path.join(root_src, 'remap')
     
     validate_annoations(cvat_annotation_file)
-    
-    # cvat_annotation_file=os.path.join(root_src, 'remap.xml') 
 
-    # remap(root_src , dir_dest, cvat_annotation_file, remap_src)
+    remap(root_src , dir_dest, cvat_annotation_file, remap_src)
+
+    cvat_annotation_file=os.path.join(root_src, 'remap.xml') 
 
     create_mask(dir_src, dir_dest, cvat_annotation_file, remap_src)
-    # split_dir(dir_dest, dir_dest_split)
+    split_dir(dir_dest, dir_dest_split)
 
 # python ./datasets/prepare_patches_dataset.py  --input_dir ./datasets/hicfa_form --output_dir ./datasets/hicfa_form/ready
