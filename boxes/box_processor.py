@@ -321,7 +321,7 @@ class BoxProcessor:
 
             # line detection
             all_box_lines = []
-            for i, region in enumerate(regions):
+            for idx, region in enumerate(regions):
                 region = np.array(region).astype(np.int32).reshape((-1))
                 region = region.reshape(-1, 2)
                 poly = region.reshape((-1, 1, 2))
@@ -343,11 +343,9 @@ class BoxProcessor:
             lines = []
 
             while len(idxs) > 0:
-                # grab the last index in the indexes list and add the
-                # index value to the list of picked indexes
                 last = len(idxs) - 1
-                i = idxs[last]
-                box_line = all_box_lines[i]
+                idx = idxs[last]
+                box_line = all_box_lines[idx]
                 overlaps, indexes = find_overlap(box_line, all_box_lines)
                 overlaps = np.array(overlaps)
                 min_x = overlaps[:, 0].min()
@@ -356,7 +354,6 @@ class BoxProcessor:
                 max_h = overlaps[:, 3].max()
                 box = [min_x, min_y, max_w, max_h]
                 lines.append(box)
-                # print(f' :: {indexes} {box}')
                 idxs = np.delete(idxs, indexes)
 			
             # reverse to get the right order
@@ -383,7 +380,7 @@ class BoxProcessor:
             fragments = []
             ms = int(time.time() * 1000)
 
-            for i, region in enumerate(regions):
+            for idx, region in enumerate(regions):
                 region = np.array(region).astype(np.int32).reshape((-1))
                 region = region.reshape(-1, 2)
                 poly = region.reshape((-1, 1, 2))
@@ -404,7 +401,7 @@ class BoxProcessor:
                 rect_line_numbers.append(line_number)
 
                 # export cropped region
-                file_path = os.path.join(crops_dir, "%s_%s.jpg" % (ms, i))
+                file_path = os.path.join(crops_dir, "%s_%s.jpg" % (ms, idx))
                 cv2.imwrite(file_path, snippet)
                 paste_fragment(pil_image, snippet, (x, y))
 

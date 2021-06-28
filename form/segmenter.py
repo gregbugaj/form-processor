@@ -13,6 +13,7 @@ from PIL import ImageFont, ImageDraw, Image
 import numpy as np
 from shutil import copy, copyfile
 import time
+import json
 
 from utils.nms import nms, non_max_suppression_fast
 from field_processor import FieldProcessor
@@ -25,6 +26,7 @@ from pix2pix.util.util import tensor2im
  
 from icr_processor import IcrProcessor
 from boxes.box_processor import BoxProcessor
+from numpyencoder import NumpyEncoder
 
 # Don't change the order here as the field dictionary depends on it
 hsv_color_ranges = [
@@ -597,48 +599,7 @@ class FormSegmeneter:
             
         return None
 
-def drawTrueTypeTextOnImage(cv2Image, text, xy, size, fillColor):
-    """
-    Print True Type fonts using PIL and convert image back into OpenCV
-    """
-    # Pass the image to PIL  
-    pil_im = Image.fromarray(cv2Image)  
-    draw = ImageDraw.Draw(pil_im)  
-    # use a truetype font  
-    fontFace = np.random.choice([ "FreeMono.ttf", "FreeMonoBold.ttf", "FreeMonoBold.ttf", "FreeSans.ttf"]) 
-    fontPath = os.path.join("./assets/fonts/truetype", "FreeMono.ttf")
-
-    font = ImageFont.truetype(fontPath, size)
-    draw.text(xy, text, font=font, fill=fillColor)  
-    # Make Numpy/OpenCV-compatible version
-    cv2Image = np.array(pil_im)
-    return cv2Image
-    
-def icr_extract(icr_processor, id, key, img, boxes, fragments):
-    """
-        Performs ICR extraction on the data
-    """
-    print('ICR : {}'.format(id))
-    print('shape : {}'.format(img.shape))
-    font = cv2.FONT_HERSHEY_SIMPLEX
-    shape=img.shape
-    overlay_image = np.ones((shape[0], shape[1], 3), dtype = np.uint8)*255
-    debug_dir = ensure_exists(os.path.join('/tmp/icr',id))
-    
-    for i, data in enumerate(zip(boxes, fragments)):
-        box, fragment = data
-        txt, confidence = icr_processor.process(id, str(i), fragment)
-        print('Processing box : {}, {}, {}'.format(box, txt, confidence))
-        conf_label = f'{confidence:0.4f}'
-        txt_label = txt
-        # cv2.rectangle(img=overlay_image, pt1=(box[0], box[1]), pt2=(box[0]+box[2], box[1]+box[3]),color=[0, 255, 0], thickness=-1)
-        # cv2.putText(overlay_image, conf_label, (box[0], box[1]+box[3]), font, .3, [0, 0, 255], 1, -1)
-        # cv2.putText(overlay_image, txt_label, (box[0], box[1] + box[3]//2), font, .5, [255, 0, 0], 1, -1)
-        overlay_image = drawTrueTypeTextOnImage(overlay_image, txt_label, (box[0], box[1] + box[3]//2), 18, (139,0,0))
-        overlay_image = drawTrueTypeTextOnImage(overlay_image, conf_label, (box[0], box[1]+box[3]), 10, (0,0,255))
-        
-    savepath=os.path.join(debug_dir, f'{key}-icr-result.png')
-    imwrite(savepath, overlay_image)
+   
 
 def segment(img_path):
     print('Segment')
@@ -674,10 +635,8 @@ def segment(img_path):
     cv2.imwrite(file_path, canvas_img)
 
     # Same model
-<<<<<<< HEAD
     # field = ['HCFA02', 'HCFA33_BILLING', 'HCFA05_ADDRESS', 'HCFA05_CITY', 'HCFA05_STATE', 'HCFA05_ZIP', 'HCFA05_PHONE']
     field = ['HCFA33_BILLING']
-=======
 
     # seg_fragments['HCFA02']['snippet_clean'] = fp.process(id, seg_fragments['HCFA02'])
     # seg_fragments['HCFA05_ADDRESS']['clean'] = fp.process(id,seg_fragments['HCFA05_ADDRESS'])
@@ -696,14 +655,13 @@ def segment(img_path):
 
     field = ['HCFA02', 'HCFA33_BILLING', 'HCFA05_ADDRESS', 'HCFA05_CITY', 'HCFA05_STATE', 'HCFA05_ZIP', 'HCFA05_PHONE']
     field = ['HCFA05_PHONE']
->>>>>>> 4f74732... Add checkerboard remova
 
     for field in field:
         print(f'Processing field : {field}')
         seg_fragments[field]['snippet_clean'] = fp.process(id, seg_fragments[field])
         snippet = seg_fragments[field]['snippet_clean']
         boxes, fragments, lines, _ = boxer.extract_bounding_boxes(id, field, snippet)
-        icr_extract(icr, id, field, snippet, boxes, fragments)
+        icr.icr_extract(id, field, snippet, boxes, fragments, lines)
    
 if __name__ == '__main__':
     img_path ='/tmp/hicfa/images/PID_10_5_0_3202.original.tif'
@@ -718,20 +676,31 @@ if __name__ == '__main__':
     img_path='/home/greg/tmp/PID_10_5_0_3103.original.tif'
 
 
-    img_path='/home/greg/dev/pytorch-CycleGAN-and-pix2pix/datasets/box33/eval_1024/a_013.png'
-    work_dir='/tmp/form-segmentation'
-    id = img_path.split('/')[-1]
-    debug_dir = ensure_exists(os.path.join(work_dir, id, 'work'))
+    if True:
+        img_path='/home/greg/dev/pytorch-CycleGAN-and-pix2pix/results/HCFA07Phone_resnet_9blocks_pix2pix/test_latest/images/HCFA05_PHONE-snippet_overlay-004_croped_real.png'
+        img_path='/home/greg/tmp/snippets/002.png'
+        img_path='/home/greg/tmp/snippets/012.png'
+        img_path='/home/greg/tmp/snippets/013.png'
+        img_path='/home/greg/tmp/snippets/009.png'
+        # img_path='/home/greg/tmp/snippets/2918_INSURED_ID.tif__resize.png'
+        work_dir='/tmp/form-segmentation'
+        id = img_path.split('/')[-1]
+        debug_dir = ensure_exists(os.path.join(work_dir, id, 'work'))
 
-    snippet = read_image(img_path)
+        snippet = read_image(img_path)
 
-    fp = FieldProcessor(work_dir)
-    snippet_clean = fp.process(id, 'HCFA33_BILLING', snippet)
+        fp = FieldProcessor(work_dir)
+        icr = IcrProcessor(work_dir)
 
-    boxer = BoxProcessor(work_dir, cuda=False)
-    boxes, fragments, lines, _= boxer.extract_bounding_boxes(id, 'field', snippet_clean)
+        # snippet_clean = fp.process(id, 'HCFA33_BILLING', snippet)
+        snippet_clean = fp.process(id, 'HCFA05_PHONE', snippet)
 
-    # segment(img_path)
+        boxer = BoxProcessor(work_dir, cuda=False)
+        boxes, img_fragments, lines, _= boxer.extract_bounding_boxes(id, 'field', snippet)
+        icr.icr_extract(id, 'HCFA05_PHONE', snippet, boxes, img_fragments, lines)
+
+    if False:
+        segment(img_path)
 
     if False:
         work_dir='/tmp/form-segmentation'
@@ -751,12 +720,8 @@ if __name__ == '__main__':
     if False:
         import glob
         # for name in glob.glob('/tmp/hicfa/*.tif'):
-<<<<<<< HEAD
-        for name in glob.glob('/home/greg/tmp/hicfa/*.tif'):
-=======
         # for name in glob.glob('/home/greg/tmp/task_3100-3199-2021_05_26_23_59_41-cvat/images/*.tif'):
         for name in glob.glob('/home/greg/tmp/task_3100-3199-2021_05_26_23_59_41-cvat/images/PID_10_5_0_3129.original.tif'):
->>>>>>> 4f74732... Add checkerboard remova
             try:
                 print(name)
                 segment(name)

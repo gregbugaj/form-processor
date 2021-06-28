@@ -3,6 +3,7 @@ import os, sys
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
 
 import numpy as np
+import json
 import copy
 import cv2
 import numpy as np
@@ -18,6 +19,9 @@ from icr.utils import CTCLabelConverter, AttnLabelConverter, Averager
 from icr.dataset import hierarchical_dataset, AlignCollate, RawDataset
 from icr.model import Model
 from icr.single_dataset import SingleDataset
+
+from numpyencoder import NumpyEncoder
+from draw_truetype import drawTrueTypeTextOnImage
 
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 # device = torch.device('cpu')
@@ -122,7 +126,8 @@ def icr_debug(opt):
                 preds_str = converter.decode(preds_index, preds_size)
 
             else:
-                preds = model(image, text_for_pred, is_train=False)
+                # preds = model(image, text_for_pred, is_train=False)
+                preds = model(image, text_for_pred)
 
                 # select max probabilty (greedy decoding) then decode index to character
                 _, preds_index = preds.max(2)
@@ -176,8 +181,8 @@ class IcrProcessor:
         opt.PAD = True
         opt.rgb = False
         opt.workers = 4
-        opt.num_gpu = 0
-        opt.image_folder = '/tmp/form-segmentation/txt_overlay001.jpg/bounding_boxes/field/crop'
+        opt.num_gpu = -1
+        opt.image_folder = './'
 
         self.opt = opt
         self.converter, self.model = self.__load()
@@ -187,8 +192,8 @@ class IcrProcessor:
 
     def __load(self):
         """ model configuration """
-        opt=self.opt
-
+        opt = self.opt
+        
         if 'CTC' in opt.Prediction:
             converter = CTCLabelConverter(opt.character)
         else:
@@ -202,17 +207,37 @@ class IcrProcessor:
         print('model input parameters', opt.imgH, opt.imgW, opt.num_fiducial, opt.input_channel, opt.output_channel,
             opt.hidden_size, opt.num_class, opt.batch_max_length, opt.Transformation, opt.FeatureExtraction,
             opt.SequenceModeling, opt.Prediction)
-        model = torch.nn.DataParallel(model).to(device)
 
+        # Somehow the model in being still loaded on GPU
+        # https://pytorch.org/tutorials/recipes/recipes/save_load_across_devices.html
+
+        # GPU only
+        model = torch.nn.DataParallel(model, device_ids=None).to(device)
         # load model
         print('loading pretrained model from %s' % opt.saved_model)
         model.load_state_dict(torch.load(opt.saved_model, map_location=device))
-        
+
+        if False:
+            class WrappedModel(torch.nn.Module):
+                def __init__(self, module):
+                    super(WrappedModel, self).__init__()
+                    self.module = module # that I actually define.
+                def forward(self, x):
+                    return self.module(x)        
+
+
+            # CPU
+            model = WrappedModel(model)
+            model = model.to(device)
+            state_dict = torch.load(opt.saved_model, map_location=device)
+            model.load_state_dict(state_dict)
+
         return converter, model
 
-    def process(self,id,key,image):
+    def extract_text(self,id,key,image):
         """
-            Process image via ICR
+            Process image via ICR, this is lowlever API
+            To get more usable results call extract_icr
         """
         print('ICR processing : {}, {}'.format(id, key))
         # debug_dir =  ensure_exists(os.path.join(self.work_dir,id,'icr',key,'debug'))
@@ -255,6 +280,7 @@ class IcrProcessor:
                     preds_str = converter.decode(preds_index, preds_size)
 
                 else:
+                    # preds = model(image, text_for_pred, is_train=False)
                     preds = model(image, text_for_pred, is_train=False)
                     # select max probabilty (greedy decoding) then decode index to character
                     _, preds_index = preds.max(2)
@@ -282,9 +308,118 @@ class IcrProcessor:
                     txt = pred
                     print(f'{img_name:25s}\t{pred:32s}\t{confidence_score:0.4f}')
                     log.write(f'{img_name:25s}\t{pred:32s}\t{confidence_score:0.4f}\n')
-                    break # FIXME: setting batch size to 1 will cause "TypeError: forward() missing 2 required positional arguments: 'input' and 'text'"
+
+                    # FIXME: setting batch size to 1 will cause "TypeError: forward() missing 2 required positional arguments: 'input' and 'text'"
+                    break
 
                 log.close()
         
+        # get value from the TensorFloat
         confidence = confidence_score.item()
-        return txt,confidence
+        return txt, confidence
+
+    def icr_extract(self, id, key, img, boxes, fragments, lines):
+        """
+            Performs ICR extraction on the data
+        """
+        print('ICR : {}'.format(id))
+        print('shape : {}'.format(img.shape))
+
+        shape = img.shape
+        overlay_image = np.ones((shape[0], shape[1], 3), dtype = np.uint8)*255
+        debug_dir = ensure_exists(os.path.join('/tmp/icr',id))
+
+        meta = {
+            'imageSize': {'width': img.shape[1], 'height': img.shape[0]},
+            'lang':'en'
+        }
+
+        words = []
+        max_line_number = 0
+
+        for i in range(len(boxes)):
+            box, fragment, line = boxes[i], fragments[i], lines[i]
+            txt, confidence = self.extract_text(id, str(i), fragment)
+            print('Processing [box, line, txt, conf] : {}, {}, {}, {}'.format(box, line, txt, confidence))
+            conf_label = f'{confidence:0.4f}'
+            txt_label = txt
+            payload = dict()
+            payload['id'] = i
+            payload['text'] = txt
+            payload['confidence'] = round(confidence, 4)
+            payload['box'] = box
+            payload['line'] = line
+
+            words.append(payload)
+
+            if line > max_line_number:
+                max_line_number = line
+
+            overlay_image = drawTrueTypeTextOnImage(overlay_image, txt_label, (box[0], box[1] + box[3]//2), 18, (139,0,0))
+            overlay_image = drawTrueTypeTextOnImage(overlay_image, conf_label, (box[0], box[1]+box[3]), 10, (0,0,255))
+            
+        savepath=os.path.join(debug_dir, f'{key}-icr-result.png')
+        imwrite(savepath, overlay_image)
+
+        line_ids = np.empty((max_line_number), dtype=object)
+        words = np.array(words)
+
+        for i in range(0, max_line_number):
+            current_lid = i+1
+            word_ids = []
+            box_picks = []
+            word_picks = []
+
+            for word in words:
+                lid = word['line']
+                if lid == current_lid:
+                    word_ids.append(word['id'])
+                    box_picks.append(word['box'])
+                    word_picks.append(word)
+
+            box_picks = np.array(box_picks)
+            word_picks = np.array(word_picks)
+
+            x1 = box_picks[:,0]
+            idxs = np.argsort(x1)
+            aligned_words = word_picks[idxs]
+            _w = []
+            _conf = []
+
+            for wd in aligned_words:
+                _w.append(wd['text'])
+                _conf.append(wd['confidence'])
+
+            text = ' '.join(_w)
+            
+            min_x = box_picks[:,0].min()
+            min_y = box_picks[:,1].min()
+            max_w = box_picks[:,2].max()
+            max_h = box_picks[:,3].max()
+            bbox = [min_x, min_y, max_w, max_h]
+            
+            line_ids[i] = {
+                'line':i+1,
+                'wordids':word_ids,
+                'text':text,
+                'bbox':bbox,
+                'confidence':round(np.average(_conf), 4)
+            }
+
+        result =  {
+            'meta': meta,
+            'words': words,
+            'lines': line_ids,
+        }
+
+        print(result) 
+
+        with open('/tmp/icr/data.json', 'w') as f:
+            json.dump(result, f,  sort_keys=True,  separators=(',', ': '), ensure_ascii=False, indent=4, cls=NumpyEncoder)
+
+        print('------ Extraction ------------')
+        for line in line_ids:
+            txt = line['text']
+            print(f' >> {txt}')
+
+        return result        
