@@ -675,14 +675,14 @@ if __name__ == '__main__':
     img_path='/home/greg/tmp/PID_10_5_0_3101.original.tif'
     img_path='/home/greg/tmp/PID_10_5_0_3103.original.tif'
 
-
     if True:
-        img_path='/home/greg/dev/pytorch-CycleGAN-and-pix2pix/results/HCFA07Phone_resnet_9blocks_pix2pix/test_latest/images/HCFA05_PHONE-snippet_overlay-004_croped_real.png'
         img_path='/home/greg/tmp/snippets/002.png'
         img_path='/home/greg/tmp/snippets/012.png'
         img_path='/home/greg/tmp/snippets/013.png'
         img_path='/home/greg/tmp/snippets/009.png'
-        # img_path='/home/greg/tmp/snippets/2918_INSURED_ID.tif__resize.png'
+        img_path='/home/greg/tmp/snippets/008.png'
+        
+
         work_dir='/tmp/form-segmentation'
         id = img_path.split('/')[-1]
         debug_dir = ensure_exists(os.path.join(work_dir, id, 'work'))
@@ -693,11 +693,11 @@ if __name__ == '__main__':
         icr = IcrProcessor(work_dir)
 
         # snippet_clean = fp.process(id, 'HCFA33_BILLING', snippet)
-        snippet_clean = fp.process(id, 'HCFA05_PHONE', snippet)
+        # snippet_clean = fp.process(id, 'HCFA05_PHONE', snippet)
 
         boxer = BoxProcessor(work_dir, cuda=False)
         boxes, img_fragments, lines, _= boxer.extract_bounding_boxes(id, 'field', snippet)
-        icr.icr_extract(id, 'HCFA05_PHONE', snippet, boxes, img_fragments, lines)
+        # icr.icr_extract(id, 'HCFA05_PHONE', snippet, boxes, img_fragments, lines)
 
     if False:
         segment(img_path)

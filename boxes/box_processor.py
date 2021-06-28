@@ -16,6 +16,9 @@ from utils.resize_image import resize_image
 
 import time
 import numpy as np
+import warnings
+warnings.filterwarnings("ignore", category=np.VisibleDeprecationWarning) 
+
 import copy
 
 import cv2
@@ -28,8 +31,9 @@ import json
 import zipfile
 
 from craft.craft import CRAFT
-
 from collections import OrderedDict
+
+
 def copyStateDict(state_dict):
     if list(state_dict.keys())[0].startswith("module"):
         start_idx = 1
@@ -272,7 +276,7 @@ class BoxProcessor:
 
         return net, refine_net
 
-    def extract_bounding_boxes(self,id,key,image):
+    def extract_bounding_boxes(self, id, key, image):
         """
             Extrac bouding boxes for specific image, try to predict line number representin each bouding box. 
             return box array, fragment array, line_number array,  prediciton results
@@ -286,13 +290,6 @@ class BoxProcessor:
             print(f'debug_dir : {debug_dir}')
             print(f'crops_dir : {crops_dir}')
             print(f'output_dir : {output_dir}')
-            # if we downscale the input we get better text detection and segmenation
-            # this is due to how the binary morphology is being done in postprocessing
-            # TODO : need to implement this fully
-            # downsized = False        
-            # if image.shape[0] > 200:
-            #     downsized = True
-            #     image = cv2.resize(image, (image.shape[1]//2, image.shape[0]//2))
 
             image = copy.deepcopy(image)
 
@@ -329,7 +326,6 @@ class BoxProcessor:
                 box = np.array(box).astype(np.int32)
                 x,y,w,h = box
                 h2 = (h / 2)
-                cy = int(y + h2)
                 box_line = [0, y+h/3, img_w, h/2]
                 box_line = np.array(box_line).astype(np.int32)
                 all_box_lines.append(box_line)
@@ -361,7 +357,6 @@ class BoxProcessor:
             line_size = len(lines)
             
             print(f'Lines detected : {line_size}')
-
             result_folder = './result/'
             if not os.path.isdir(result_folder):
                 os.mkdir(result_folder)
@@ -380,7 +375,11 @@ class BoxProcessor:
             fragments = []
             ms = int(time.time() * 1000)
 
+            # if True:
+            #     return [], [], [], None
+                
             for idx, region in enumerate(regions):
+                print(f'--- Snippet ID {idx}')
                 region = np.array(region).astype(np.int32).reshape((-1))
                 region = region.reshape(-1, 2)
                 poly = region.reshape((-1, 1, 2))
@@ -388,8 +387,9 @@ class BoxProcessor:
                 box = cv2.boundingRect(poly)
                 box = np.array(box).astype(np.int32)
                 x,y,w,h = box
-                
                 snippet = crop_poly_low(image, poly)
+
+                print(f' ** snippet shape : {snippet.shape}')
                 # try to figure out line number
                 _, line_indexes = find_overlap(box, lines)                
                 line_number = -1
@@ -399,20 +399,30 @@ class BoxProcessor:
                 fragments.append(snippet)
                 rect_from_poly.append(box)
                 rect_line_numbers.append(line_number)
-
+                
                 # export cropped region
                 file_path = os.path.join(crops_dir, "%s_%s.jpg" % (ms, idx))
                 cv2.imwrite(file_path, snippet)
                 paste_fragment(pil_image, snippet, (x, y))
 
+                # break    
             savepath = os.path.join(debug_dir, "%s.jpg" % ('txt_overlay'))
             pil_image.save(savepath, format='JPEG', subsampling=0, quality=100)
- 
+
+            print('shapes')
+            print(np.array(rect_from_poly).shape)
+            # print(np.array(fragments, dtype = object).shape)
+            print(np.array(rect_line_numbers).shape)
+
+            if True:
+                return [], [], [], None
+                
             return np.array(rect_from_poly), np.array(fragments), np.array(rect_line_numbers), prediction_result
         except Exception as ident:
+            raise ident
             print(ident)
 
-        return np.array([]), np.array([]), None
+        return [], [], [], None
 
     def process_full_extraction(self,id,image):
         """
