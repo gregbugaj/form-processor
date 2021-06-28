@@ -624,7 +624,6 @@ def icr_extract(icr_processor, id, key, img, boxes, fragments):
     shape=img.shape
     overlay_image = np.ones((shape[0], shape[1], 3), dtype = np.uint8)*255
     debug_dir = ensure_exists(os.path.join('/tmp/icr',id))
-    work_dir = debug_dir
     
     for i, data in enumerate(zip(boxes, fragments)):
         box, fragment = data
@@ -648,9 +647,9 @@ def segment(img_path):
     id = img_path.split('/')[-1]
     debug_dir = ensure_exists(os.path.join(work_dir, id, 'work'))
 
-    boxer = BoxProcessor(work_dir, cuda=False)
     segmenter = FormSegmeneter(work_dir, network="")
     fp = FieldProcessor(work_dir)
+    boxer = BoxProcessor(work_dir, cuda=False)
     icr = IcrProcessor(work_dir)
 
     seg_fragments, img, segmask = segmenter.segment(id, img_path)
@@ -675,29 +674,14 @@ def segment(img_path):
     cv2.imwrite(file_path, canvas_img)
 
     # Same model
-
-    # seg_fragments['HCFA02']['snippet_clean'] = fp.process(id, seg_fragments['HCFA02'])
-    # seg_fragments['HCFA05_ADDRESS']['clean'] = fp.process(id,seg_fragments['HCFA05_ADDRESS'])
-    # fragments['HCFA05_CITY']['clean'] = fp.process(img_path,fragments['HCFA05_CITY'])
-    # fragments['HCFA05_STATE']['clean'] = fp.process(img_path,fragments['HCFA05_STATE'])
-    # fragments['HCFA05_ZIP']['clean'] = fp.process(img_path,fragments['HCFA05_ZIP'])
-    # fragments['HCFA05_PHONE']['clean'] = fp.process(img_path,fragments['HCFA05_PHONE'])
-    
-    # seg_fragments['HCFA33_BILLING']['snippet_clean'] = fp.process(id, seg_fragments['HCFA33_BILLING'])
-
-    # fragments['HCFA21']['clean'] = fp.process(img_path,fragments['HCFA21'])
-    # clean_img=segmenter.build_clean_fragments(id, img, seg_fragments)
-
-    # boxes, fragments, _=boxer.extract_bounding_boxes(id, 'HCFA02', seg_fragments['HCFA02']['snippet_clean'])
-    # boxer.extract_bounding_boxes(id, 'HCFA33_BILLING', seg_fragments['HCFA33_BILLING']['snippet_clean'])
-
-    field = ['HCFA02', 'HCFA33_BILLING', 'HCFA05_ADDRESS', 'HCFA05_CITY', 'HCFA05_STATE', 'HCFA05_ZIP', 'HCFA05_PHONE']
+    # field = ['HCFA02', 'HCFA33_BILLING', 'HCFA05_ADDRESS', 'HCFA05_CITY', 'HCFA05_STATE', 'HCFA05_ZIP', 'HCFA05_PHONE']
+    field = ['HCFA33_BILLING']
 
     for field in field:
         print(f'Processing field : {field}')
         seg_fragments[field]['snippet_clean'] = fp.process(id, seg_fragments[field])
         snippet = seg_fragments[field]['snippet_clean']
-        boxes, fragments, _ = boxer.extract_bounding_boxes(id, field, snippet)
+        boxes, fragments, lines, _ = boxer.extract_bounding_boxes(id, field, snippet)
         icr_extract(icr, id, field, snippet, boxes, fragments)
    
 if __name__ == '__main__':
@@ -711,7 +695,21 @@ if __name__ == '__main__':
     img_path='/home/greg/tmp/PID_10_5_0_3104.original.tif'
     img_path='/home/greg/tmp/PID_10_5_0_3101.original.tif'
     img_path='/home/greg/tmp/PID_10_5_0_3103.original.tif'
-    
+
+
+    img_path='/home/greg/dev/pytorch-CycleGAN-and-pix2pix/datasets/box33/eval_1024/a_013.png'
+    work_dir='/tmp/form-segmentation'
+    id = img_path.split('/')[-1]
+    debug_dir = ensure_exists(os.path.join(work_dir, id, 'work'))
+
+    snippet = read_image(img_path)
+
+    fp = FieldProcessor(work_dir)
+    snippet_clean = fp.process(id, 'HCFA33_BILLING', snippet)
+
+    boxer = BoxProcessor(work_dir, cuda=False)
+    boxes, fragments, lines, _= boxer.extract_bounding_boxes(id, 'field', snippet_clean)
+
     # segment(img_path)
 
     if False:
@@ -726,13 +724,13 @@ if __name__ == '__main__':
             snip = read_image(name)
             if snip is None:
                 continue
-            boxes, fragments, _= boxer.extract_bounding_boxes(id, 'field', snip)
+            boxes, fragments, lines, _= boxer.extract_bounding_boxes(id, 'field', snip)
             icr(id, snip, boxes, fragments)
 
-    if True:
+    if False:
         import glob
         # for name in glob.glob('/tmp/hicfa/*.tif'):
-        for name in glob.glob('/home/greg/tmp/task_3100-3199-2021_05_26_23_59_41-cvat/images/PID_10_5_0_3102.original.tif'):
+        for name in glob.glob('/home/greg/tmp/hicfa/*.tif'):
             try:
                 print(name)
                 segment(name)

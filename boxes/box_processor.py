@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 # Add parent to the search path so we can reference the modules(craft, pix2pix) here without throwing and exception 
 import os, sys
+from utils.nms import non_max_suppression_fast
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
 
 import time
@@ -107,6 +108,63 @@ def paste_fragment(overlay, fragment, pos=(0,0)):
     fragment_pil = Image.fromarray(fragment)
     overlay.paste(fragment_pil, pos) 
 
+def find_overlap(box, data):
+    overalps=[]
+    indexes=[]
+
+    if len(data) == 0:
+        return [], []
+
+    x,y,w,h = box
+    x1min = x
+    x1max = x+w
+    y1min = y
+    y1max = y+h
+
+    for i, bb in enumerate(data):
+        _x,_y,_w,_h = bb
+        x2min = _x
+        x2max = _x+_w
+        y2min = _y
+        y2max = _y+_h
+        if (x1min<x2max and x2min<x1max and y1min < y2max and y2min < y1max) :
+            overalps.append(bb)
+            indexes.append(i)
+
+    return np.array(overalps), np.array(indexes)
+
+def line_detection(src):
+    """
+        Detect lines 
+    """
+    print(f'Line detection : {src.shape}')
+    cv2.imwrite('/home/greg/dev/form-processor/result/lines.png', src)
+    # conversion required or we will get 'Failure to use adaptiveThreshold: CV_8UC1 in function adaptiveThreshold'
+    src = src.astype('uint8')
+    # Transform source image to gray if it is not already
+    if len(src.shape) != 2:
+        gray = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
+    else:
+        gray = src
+    # Apply adaptiveThreshold at the bitwise_not of gray
+    gray = cv2.bitwise_not(gray)
+    bw = cv2.adaptiveThreshold(gray, 255, cv2.THRESH_BINARY, 15, -2)
+    cv2.imwrite('/home/greg/dev/form-processor/result/detected_lines.png', bw)
+
+    # Create the images that will use to extract the horizontal lines
+    thresh = np.copy(bw)
+    image = src
+    rows = thresh.shape[0]
+    verticalsize = rows // 4
+
+    kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 8))
+    detected_lines = cv2.dilate(thresh, kernel)
+
+    # detected_lines = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, vertical_kernel, iterations=2)
+
+    cv2.imwrite('/home/greg/dev/form-processor/result/detected_linesXX.png', detected_lines)
+
+
 
 def get_prediction(craft_net, image, text_threshold, link_threshold, low_text, cuda, poly, canvas_size, mag_ratio, refine_net=None):
     net = craft_net
@@ -155,10 +213,11 @@ def get_prediction(craft_net, image, text_threshold, link_threshold, low_text, c
     # render results (optional)
     render_img = score_text.copy()
     render_img = np.hstack((render_img, score_link))
+    render_img = score_link
     ret_score_text = craft.imgproc.cvt2HeatmapImg(render_img)
-
     if show_time : print("\ninfer/postproc time : {:.3f}/{:.3f}".format(t0, t1))
-
+    
+    # line_detection(score_text * 255)
     return boxes, polys, ret_score_text
 
 
@@ -215,8 +274,8 @@ class BoxProcessor:
 
     def extract_bounding_boxes(self,id,key,image):
         """
-            Extrac bouding boxes for specific image
-            return box array, fragment array , prediciton results
+            Extrac bouding boxes for specific image, try to predict line number representin each bouding box. 
+            return box array, fragment array, line_number array,  prediciton results
         """
         print('Extracting bounding boxes : {}, {}'.format(id, key))
         try:
@@ -227,7 +286,6 @@ class BoxProcessor:
             print(f'debug_dir : {debug_dir}')
             print(f'crops_dir : {crops_dir}')
             print(f'output_dir : {output_dir}')
-
             # if we downscale the input we get better text detection and segmenation
             # this is due to how the binary morphology is being done in postprocessing
             # TODO : need to implement this fully
@@ -236,8 +294,6 @@ class BoxProcessor:
             #     downsized = True
             #     image = cv2.resize(image, (image.shape[1]//2, image.shape[0]//2))
 
-            h=image.shape[0]
-            w=image.shape[1]
             image = copy.deepcopy(image)
 
             bboxes, polys, score_text = get_prediction(
@@ -258,24 +314,72 @@ class BoxProcessor:
             prediction_result['polys'] = polys
             prediction_result['heatmap'] = score_text
             
+            regions = bboxes # prediction_result["boxes"]
+
+            img_h=image.shape[0]
+            img_w=image.shape[1]
+
+            # line detection
+            all_box_lines = []
+            for i, region in enumerate(regions):
+                region = np.array(region).astype(np.int32).reshape((-1))
+                region = region.reshape(-1, 2)
+                poly = region.reshape((-1, 1, 2))
+                box = cv2.boundingRect(poly)
+                box = np.array(box).astype(np.int32)
+                x,y,w,h = box
+                h2 = (h / 2)
+                cy = int(y + h2)
+                box_line = [0, y+h/3, img_w, h/2]
+                box_line = np.array(box_line).astype(np.int32)
+                all_box_lines.append(box_line)
+                # print(f' >  {cy} : {box} : {box_line}')
+
+            all_box_lines = np.array(all_box_lines)
+            y1 = all_box_lines[:,1]
+            
+            # sort boxes by the  y-coordinate of the bounding box
+            idxs = np.argsort(y1)
+            lines = []
+
+            while len(idxs) > 0:
+                # grab the last index in the indexes list and add the
+                # index value to the list of picked indexes
+                last = len(idxs) - 1
+                i = idxs[last]
+                box_line = all_box_lines[i]
+                overlaps, indexes = find_overlap(box_line, all_box_lines)
+                overlaps = np.array(overlaps)
+                min_x = overlaps[:, 0].min()
+                min_y = overlaps[:, 1].min()
+                max_w = overlaps[:, 2].max()
+                max_h = overlaps[:, 3].max()
+                box = [min_x, min_y, max_w, max_h]
+                lines.append(box)
+                # print(f' :: {indexes} {box}')
+                idxs = np.delete(idxs, indexes)
+			
+            # reverse to get the right order
+            lines = np.array(lines)[::-1]
+            line_size = len(lines)
+            
+            print(f'Lines detected : {line_size}')
+
             result_folder = './result/'
             if not os.path.isdir(result_folder):
                 os.mkdir(result_folder)
 
             # save score text
-            # filename, file_ext = os.path.splitext(os.path.basename(image_path))
             filename = id
             mask_file = result_folder + "/res_" + filename + '_mask.jpg'
             cv2.imwrite(mask_file, score_text)
 
-            # craft.file_utils.saveResult(image_path, image[:,:,::-1], polys, dirname=result_folder)
-
-            regions = bboxes # prediction_result["boxes"]
             # deepcopy image so that original is not altered
             image = copy.deepcopy(image)
             pil_image = Image.new('RGB', (image.shape[1], image.shape[0]), color=(0,255,0,0))
 
             rect_from_poly = []
+            rect_line_numbers = []
             fragments = []
             ms = int(time.time() * 1000)
 
@@ -289,9 +393,16 @@ class BoxProcessor:
                 x,y,w,h = box
                 
                 snippet = crop_poly_low(image, poly)
+                # try to figure out line number
+                _, line_indexes = find_overlap(box, lines)                
+                line_number = -1
+                if len(line_indexes) == 1:
+                    line_number = line_indexes[0]+1
+
                 fragments.append(snippet)
                 rect_from_poly.append(box)
-                
+                rect_line_numbers.append(line_number)
+
                 # export cropped region
                 file_path = os.path.join(crops_dir, "%s_%s.jpg" % (ms, i))
                 cv2.imwrite(file_path, snippet)
@@ -299,8 +410,8 @@ class BoxProcessor:
 
             savepath = os.path.join(debug_dir, "%s.jpg" % ('txt_overlay'))
             pil_image.save(savepath, format='JPEG', subsampling=0, quality=100)
-
-            return np.array(rect_from_poly), np.array(fragments), prediction_result
+ 
+            return np.array(rect_from_poly), np.array(fragments), np.array(rect_line_numbers), prediction_result
         except Exception as ident:
             print(ident)
 
@@ -378,8 +489,6 @@ class BoxProcessor:
 
         cv_img = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
         return np.array(rect_from_poly), np.array(fragments), cv_img, prediction_result 
-
-
 
 class Object(object):
     pass 
