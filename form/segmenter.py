@@ -697,7 +697,7 @@ if __name__ == '__main__':
 
         boxer = BoxProcessor(work_dir, cuda=False)
         boxes, img_fragments, lines, _= boxer.extract_bounding_boxes(id, 'field', snippet)
-        # icr.icr_extract(id, 'HCFA05_PHONE', snippet, boxes, img_fragments, lines)
+        icr.icr_extract(id, 'HCFA05_PHONE', snippet, boxes, img_fragments, lines)
 
     if False:
         segment(img_path)

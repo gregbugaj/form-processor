@@ -375,9 +375,6 @@ class BoxProcessor:
             fragments = []
             ms = int(time.time() * 1000)
 
-            # if True:
-            #     return [], [], [], None
-                
             for idx, region in enumerate(regions):
                 print(f'--- Snippet ID {idx}')
                 region = np.array(region).astype(np.int32).reshape((-1))
@@ -409,15 +406,11 @@ class BoxProcessor:
             savepath = os.path.join(debug_dir, "%s.jpg" % ('txt_overlay'))
             pil_image.save(savepath, format='JPEG', subsampling=0, quality=100)
 
-            print('shapes')
-            print(np.array(rect_from_poly).shape)
-            # print(np.array(fragments, dtype = object).shape)
-            print(np.array(rect_line_numbers).shape)
-
-            if True:
-                return [], [], [], None
-                
-            return np.array(rect_from_poly), np.array(fragments), np.array(rect_line_numbers), prediction_result
+            # if True:
+            #     return [], [], [], None
+            # we can't return np.array here as t the 'fragments' will throw an error
+            # ValueError: could not broadcast input array from shape (42,77,3) into shape (42,)
+            return rect_from_poly, fragments, rect_line_numbers, prediction_result
         except Exception as ident:
             raise ident
             print(ident)
