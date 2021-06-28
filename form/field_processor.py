@@ -49,7 +49,7 @@ class FieldProcessor:
         self.models['HCFA05_CITY'] = 'HCFA02' # Reused
         self.models['HCFA05_STATE'] = 'HCFA02' # Reused
         self.models['HCFA05_ZIP'] = 'HCFA02' # Reused
-        self.models['HCFA05_PHONE'] = 'HCFA02' # Reused
+        self.models['HCFA05_PHONE'] = 'HCFA07Phone' # Reused from HCFA07Phone
 
         self.models['HCFA33_BILLING'] = 'box33_pix2pix'
         self.models['HCFA21'] = 'diagnosis_code'

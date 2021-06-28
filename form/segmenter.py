@@ -674,8 +674,29 @@ def segment(img_path):
     cv2.imwrite(file_path, canvas_img)
 
     # Same model
+<<<<<<< HEAD
     # field = ['HCFA02', 'HCFA33_BILLING', 'HCFA05_ADDRESS', 'HCFA05_CITY', 'HCFA05_STATE', 'HCFA05_ZIP', 'HCFA05_PHONE']
     field = ['HCFA33_BILLING']
+=======
+
+    # seg_fragments['HCFA02']['snippet_clean'] = fp.process(id, seg_fragments['HCFA02'])
+    # seg_fragments['HCFA05_ADDRESS']['clean'] = fp.process(id,seg_fragments['HCFA05_ADDRESS'])
+    # fragments['HCFA05_CITY']['clean'] = fp.process(img_path,fragments['HCFA05_CITY'])
+    # fragments['HCFA05_STATE']['clean'] = fp.process(img_path,fragments['HCFA05_STATE'])
+    # fragments['HCFA05_ZIP']['clean'] = fp.process(img_path,fragments['HCFA05_ZIP'])
+    # fragments['HCFA05_PHONE']['clean'] = fp.process(img_path,fragments['HCFA05_PHONE'])
+    
+    # seg_fragments['HCFA33_BILLING']['snippet_clean'] = fp.process(id, seg_fragments['HCFA33_BILLING'])
+
+    # fragments['HCFA21']['clean'] = fp.process(img_path,fragments['HCFA21'])
+    # clean_img=segmenter.build_clean_fragments(id, img, seg_fragments)
+
+    # boxes, fragments, _=boxer.extract_bounding_boxes(id, 'HCFA02', seg_fragments['HCFA02']['snippet_clean'])
+    # boxer.extract_bounding_boxes(id, 'HCFA33_BILLING', seg_fragments['HCFA33_BILLING']['snippet_clean'])
+
+    field = ['HCFA02', 'HCFA33_BILLING', 'HCFA05_ADDRESS', 'HCFA05_CITY', 'HCFA05_STATE', 'HCFA05_ZIP', 'HCFA05_PHONE']
+    field = ['HCFA05_PHONE']
+>>>>>>> 4f74732... Add checkerboard remova
 
     for field in field:
         print(f'Processing field : {field}')
@@ -730,9 +751,15 @@ if __name__ == '__main__':
     if False:
         import glob
         # for name in glob.glob('/tmp/hicfa/*.tif'):
+<<<<<<< HEAD
         for name in glob.glob('/home/greg/tmp/hicfa/*.tif'):
+=======
+        # for name in glob.glob('/home/greg/tmp/task_3100-3199-2021_05_26_23_59_41-cvat/images/*.tif'):
+        for name in glob.glob('/home/greg/tmp/task_3100-3199-2021_05_26_23_59_41-cvat/images/PID_10_5_0_3129.original.tif'):
+>>>>>>> 4f74732... Add checkerboard remova
             try:
                 print(name)
                 segment(name)
+                break
             except Exception as ident:
                 print(ident)
