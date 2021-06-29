@@ -76,8 +76,8 @@ class FormProcessor:
         cv2.imwrite(file_path, canvas_img)
 
         # fields = ['HCFA02', 'HCFA33_BILLING', 'HCFA05_ADDRESS', 'HCFA05_CITY', 'HCFA05_STATE', 'HCFA05_ZIP', 'HCFA05_PHONE']
-        # fields = ['HCFA33_BILLING']
-        fields = ['HCFA05_PHONE']
+        fields = ['HCFA33_BILLING']
+        # fields = ['HCFA05_PHONE']
         
         print(f'All fields : {fields}')
         meta = {
