@@ -1,4 +1,6 @@
 
+import json
+import time
 from form import processor
 from operator import ne
 import os
@@ -17,6 +19,9 @@ def ensure_exists(dir):
         os.makedirs(dir)   
     return dir   
 
+
+def current_milli_time():
+    return round(time.time() * 1000)   
 class FormProcessor:
     def __init__(self, work_dir:str = '/tmp/form-segmentation', cuda: bool = False) -> None:
         print("Form processor [cuda={}]".format(cuda))
@@ -25,13 +30,17 @@ class FormProcessor:
 
     def __load(self):
         print('Initializing processor')
-
-        self.segmenter = FormSegmeneter(work_dir, network="")
-        self.fp = FieldProcessor(work_dir)
+        m0 = current_milli_time()
+        self.segmenter = FormSegmeneter(work_dir)
+        self.fproc = FieldProcessor(work_dir)
         self.boxer = BoxProcessor(work_dir, cuda=False)
         self.icr = IcrProcessor(work_dir)
+        m1 = current_milli_time()-m0
+
+        print('Form processor initialized in {} ms'.format(m1))
 
     def process(self, img_path):
+        m0 = current_milli_time()
         print(f'Processing image : {img_path}')
         work_dir =  self.work_dir
 
@@ -39,7 +48,7 @@ class FormProcessor:
         debug_dir = ensure_exists(os.path.join(work_dir, id, 'work'))
 
         segmenter = self.segmenter
-        fp = self.fp
+        fproc = self.fproc
         boxer = self.boxer
         icr = self.icr
 
@@ -66,35 +75,57 @@ class FormProcessor:
         file_path = os.path.join(debug_dir, "text_over_segmask.png")
         cv2.imwrite(file_path, canvas_img)
 
-        # Same model
-
-        # seg_fragments['HCFA02']['snippet_clean'] = fp.process(id, seg_fragments['HCFA02'])
-        # seg_fragments['HCFA05_ADDRESS']['clean'] = fp.process(id,seg_fragments['HCFA05_ADDRESS'])
-        # fragments['HCFA05_CITY']['clean'] = fp.process(img_path,fragments['HCFA05_CITY'])
-        # fragments['HCFA05_STATE']['clean'] = fp.process(img_path,fragments['HCFA05_STATE'])
-        # fragments['HCFA05_ZIP']['clean'] = fp.process(img_path,fragments['HCFA05_ZIP'])
-        # fragments['HCFA05_PHONE']['clean'] = fp.process(img_path,fragments['HCFA05_PHONE'])
+        # fields = ['HCFA02', 'HCFA33_BILLING', 'HCFA05_ADDRESS', 'HCFA05_CITY', 'HCFA05_STATE', 'HCFA05_ZIP', 'HCFA05_PHONE']
+        # fields = ['HCFA33_BILLING']
+        fields = ['HCFA05_PHONE']
         
-        # seg_fragments['HCFA33_BILLING']['snippet_clean'] = fp.process(id, seg_fragments['HCFA33_BILLING'])
-        # fragments['HCFA21']['clean'] = fp.process(img_path,fragments['HCFA21'])
-        # clean_img=segmenter.build_clean_fragments(id, img, seg_fragments)
-        # boxes, fragments, _=boxer.extract_bounding_boxes(id, 'HCFA02', seg_fragments['HCFA02']['snippet_clean'])
-        # boxer.extract_bounding_boxes(id, 'HCFA33_BILLING', seg_fragments['HCFA33_BILLING']['snippet_clean'])
+        print(f'All fields : {fields}')
+        meta = {
+            'imageSize': {'width': img.shape[1], 'height': img.shape[0]},
+            'id':id
+        }
 
-        field = ['HCFA02', 'HCFA33_BILLING', 'HCFA05_ADDRESS', 'HCFA05_CITY', 'HCFA05_STATE', 'HCFA05_ZIP', 'HCFA05_PHONE']
-        field = ['HCFA05_PHONE']
-        
-        result = []
-        for field in field:
+        field_results = []
+
+        for field in fields:
             print(f'Processing field : {field}')
-        
-            seg_fragments[field]['snippet_clean'] = fp.process(id, seg_fragments[field])
-            snippet = seg_fragments[field]['snippet_clean']
-            boxes, fragments, lines, _ = boxer.extract_bounding_boxes(id, field, snippet)
 
-            icr_results = icr.icr_extract(id, field, snippet, boxes, fragments, lines)
+            icr_results = {}
+            failed = False
+            try:
+                snippet = seg_fragments[field]['snippet']
+                seg_fragments[field]['snippet_clean'] = fproc.process(id, field, snippet)
+                snippet = seg_fragments[field]['snippet_clean']            
+                boxes, fragments, lines, _ = boxer.extract_bounding_boxes(id, field, snippet)
+                icr_results = icr.icr_extract(id, field, snippet, boxes, fragments, lines)
+            except Exception as ident:
+                raise ident
+                failed = True
+                print(f'Field failed : {field}')
+                print(ident)
 
-            result.append(icr_results)
+            data = {
+                'field':field,
+                'icr':icr_results,
+                'failed':failed
+            }
+
+            field_results.append(data)
+
+        m1 = current_milli_time()-m0
+
+        result =  {
+            'meta': meta,
+            'eval_time':m1,
+            'fields': field_results,
+        }
+
+        print(result) 
+        file_path = os.path.join(debug_dir, "results.json")
+        with open(file_path, 'w') as f:
+            json.dump(result, f,  sort_keys=True,  separators=(',', ': '), ensure_ascii=False, indent=4, cls=NumpyEncoder)
+            
+        return result
 
 def parse_args():
     """Parse input arguments"""
@@ -109,8 +140,11 @@ if __name__ == '__main__':
     args = parse_args()
 
     work_dir='/tmp/form-segmentation'
+    img_path='/home/greg/tmp/hicfa/PID_10_5_0_3101.original.tif'
 
-    img_path='/tmp/form-segmentation/a_013.png/fields_debug/HCFA33_BILLING/segmenation_fake.png'
+    if True:
+        processor = FormProcessor(work_dir='/tmp/form-segmentation', cuda=False)
+        processor.process(img_path)
 
     if False:
         img_path='/home/greg/tmp/snippets/009.png'
@@ -130,9 +164,6 @@ if __name__ == '__main__':
         boxer = BoxProcessor(work_dir, cuda=False)
         boxes, img_fragments, lines, _= boxer.extract_bounding_boxes(id, 'field', snippet)
         icr.icr_extract(id, 'HCFA05_PHONE', snippet, boxes, img_fragments, lines)
-
-    if True:
-        processor = FormProcessor(work_dir='/tmp/form-segmentation', cuda=False)
 
     if False:
         work_dir='/tmp/form-segmentation'

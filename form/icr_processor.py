@@ -413,9 +413,9 @@ class IcrProcessor:
         }
 
         print(result) 
-
-        with open('/tmp/icr/data.json', 'w') as f:
-            json.dump(result, f,  sort_keys=True,  separators=(',', ': '), ensure_ascii=False, indent=4, cls=NumpyEncoder)
+        
+        # with open('/tmp/icr/data.json', 'w') as f:
+        #     json.dump(result, f,  sort_keys=True,  separators=(',', ': '), ensure_ascii=False, indent=4, cls=NumpyEncoder)
 
         print('------ Extraction ------------')
         for line in line_ids:

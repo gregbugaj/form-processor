@@ -22,11 +22,6 @@ from pix2pix.data import create_dataset
 from pix2pix.models import create_model
 from pix2pix.util.visualizer import save_images
 from pix2pix.util.util import tensor2im
- 
-from field_processor import FieldProcessor
-from icr_processor import IcrProcessor
-from boxes.box_processor import BoxProcessor
-from numpyencoder import NumpyEncoder
 
 # Don't change the order here as the field dictionary depends on it
 hsv_color_ranges = [
@@ -124,9 +119,9 @@ def find_overlap(box, data):
             indexes.append(i)
 
     return np.array(overalps), indexes
+ 
 class FormSegmeneter:
-    def __init__(self, work_dir, network):
-        self.network = network
+    def __init__(self, work_dir):
         self.work_dir = work_dir
         self.opt, self.model = self.__setup()
 
@@ -139,7 +134,7 @@ class FormSegmeneter:
             '--dataroot', './data', 
             '--name', 'hicfa_pix2pix',
             '--model', 'test',
-            '--netG', 'unet_256',
+            '--netG', 'unet_1024',
             '--direction', 'AtoB',
             '--model', 'test',
             '--dataset_mode', 'single',
@@ -575,8 +570,8 @@ class FormSegmeneter:
         print('Processing  fragment_to_box_extraction: {}'.format(id))
         debug_dir =  ensure_exists(os.path.join(self.work_dir,id,'boxes_mask'))
         crops_dir = ensure_exists(os.path.join(self.work_dir,id,'crops_mask'))
-        
         img = txt_overlay_img
+
         for key in fragments.keys():
             frag = fragments[key]
             snippet=frag['snippet']
