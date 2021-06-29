@@ -1,3 +1,8 @@
+
+# Add parent to the search path so we can reference the module here without throwing and exception 
+import os, sys
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
+
 import cv2
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -7,11 +12,6 @@ from matplotlib.colors import hsv_to_rgb, rgb_to_hsv
 from PIL import Image
 import numpy as np
 import time
-
-# Add parent to the search path so we can reference the module here without throwing and exception 
-import os, sys
-sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
-from utils.nms import nms, non_max_suppression_fast
 
 from pix2pix.options.test_options import TestOptions
 from pix2pix.data import create_dataset
@@ -35,20 +35,6 @@ def ensure_exists(dir):
     if not os.path.exists(dir):
         os.makedirs(dir)        
 
-
-def make_power_2(img, base, method=Image.BICUBIC):
-    ow, oh = img.size
-    h = int(round(oh / base) * base)
-    w = int(round(ow / base) * base)
-    if h == oh and w == ow:
-        return img
-         
-    print("The image size needs to be a multiple of 4. "
-              "The loaded image size was (%d, %d), so it was adjusted to "
-              "(%d, %d). This adjustment will be done to all images "
-              "whose sizes are not multiples of 4" % (ow, oh, w, h))
-
-    return img.resize((w, h), method)
 class FieldProcessor:
     
     def __init__(self, work_dir) -> None:
@@ -58,13 +44,12 @@ class FieldProcessor:
         # models can be shared
         self.models=dict()
         
-        self.models['HCFA05_PHONE'] = 'HCFA07Phone_resnet_9blocks_pix2pix' # Reused from HCFA07Phone
-
         self.models['HCFA02'] = 'HCFA02'
         self.models['HCFA05_ADDRESS'] = 'HCFA02' # Reused
         self.models['HCFA05_CITY'] = 'HCFA02' # Reused
         self.models['HCFA05_STATE'] = 'HCFA02' # Reused
         self.models['HCFA05_ZIP'] = 'HCFA02' # Reused
+        self.models['HCFA05_PHONE'] = 'HCFA02' # Reused
 
         self.models['HCFA33_BILLING'] = 'box33_pix2pix'
         self.models['HCFA21'] = 'diagnosis_code'
@@ -115,16 +100,12 @@ class FieldProcessor:
 
     def process(self, id, key, snippet)->None:
         """
-            Process data field,
-            snippet The image size needs to be a multiple of 4
+            Process data field
         """
+        # key = fragment['key']
         print("Processing field : {}".format(key))
+        # snippet = fragment['snippet_overlay']
         opt, model = self.__setup(key)
-
-        pil_snippet = Image.fromarray(snippet)
-        pil_snippet = make_power_2(pil_snippet, base=4, method=Image.BICUBIC)
-        cv_snip = np.array(pil_snippet)                
-        snippet = cv2.cvtColor(cv_snip, cv2.COLOR_RGB2BGR)# convert RGB to BGR
    
         work_dir = os.path.join(self.work_dir, id, 'fields', key)
         debug_dir = os.path.join(self.work_dir, id, 'fields_debug', key)
@@ -183,7 +164,7 @@ class FieldProcessor:
             data = json.load(f)
         
         args_default = data['args']
-        print(args_default)
+        print(data)
 
         if False:
             args_default = [

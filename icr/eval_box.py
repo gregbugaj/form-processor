@@ -168,7 +168,6 @@ pil_image.save(savepath, format='JPEG', subsampling=0, quality=100)
 # unload models from gpu
 empty_cuda_cache()
 
-
 # pil_padded = Image.new('RGB', (shape[1] + pad, shape[0] + pad), color=(255,255,255,0))
 # paste_fragment(pil_padded, snippet, (pad//2, pad//2))
 

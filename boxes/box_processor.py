@@ -27,8 +27,6 @@ import numpy as np
 import craft.craft_utils
 import craft.imgproc
 import craft.file_utils
-import json
-import zipfile
 
 from craft.craft import CRAFT
 from collections import OrderedDict
@@ -376,7 +374,6 @@ class BoxProcessor:
             ms = int(time.time() * 1000)
 
             for idx, region in enumerate(regions):
-                print(f'--- Snippet ID {idx}')
                 region = np.array(region).astype(np.int32).reshape((-1))
                 region = region.reshape(-1, 2)
                 poly = region.reshape((-1, 1, 2))
@@ -386,7 +383,6 @@ class BoxProcessor:
                 x,y,w,h = box
                 snippet = crop_poly_low(image, poly)
 
-                print(f' ** snippet shape : {snippet.shape}')
                 # try to figure out line number
                 _, line_indexes = find_overlap(box, lines)                
                 line_number = -1
@@ -406,20 +402,18 @@ class BoxProcessor:
             savepath = os.path.join(debug_dir, "%s.jpg" % ('txt_overlay'))
             pil_image.save(savepath, format='JPEG', subsampling=0, quality=100)
 
-            # if True:
-            #     return [], [], [], None
             # we can't return np.array here as t the 'fragments' will throw an error
             # ValueError: could not broadcast input array from shape (42,77,3) into shape (42,)
             return rect_from_poly, fragments, rect_line_numbers, prediction_result
         except Exception as ident:
-            raise ident
+            # raise ident
             print(ident)
 
         return [], [], [], None
 
-    def process_full_extraction(self,id,image):
+    def process_full_extraction(self, id, image):
         """
-            Do full page text extraction
+            Do full image text extraction
         """
         print('Processing full page extraction: {}'.format(id))
 
@@ -464,6 +458,7 @@ class BoxProcessor:
 
         rect_from_poly=[]
         fragments=[]
+
         for i, region in enumerate(regions):
             region = np.array(region).astype(np.int32).reshape((-1))
             region = region.reshape(-1, 2)
