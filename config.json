@@ -1,0 +1,9 @@
+{
+    "fields": [
+        {
+            "field": "HCFA02",
+            "enabled": true,
+            "multiline":false
+        }
+    ]
+}
