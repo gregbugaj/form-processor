@@ -79,7 +79,7 @@ class FormProcessor:
         # All models need to be rebuild
         # fields = ['HCFA02', 'HCFA33_BILLING', 'HCFA05_ADDRESS', 'HCFA05_CITY', 'HCFA05_STATE', 'HCFA05_ZIP', 'HCFA05_PHONE']
         fields = ['HCFA33_BILLING']
-        fields = ['HCFA02']
+        fields = ['HCFA02', 'HCFA02', 'HCFA02','HCFA02']
         
         print(f'All fields : {fields}')
         meta = {
@@ -163,4 +163,4 @@ if __name__ == '__main__':
     id = img_path.split('/')[-1]
     output_dir = ensure_exists(os.path.join(work_dir, id, 'result'))
 
-    main(img_path=img_path, output_dir=output_dir, work_dir=work_dir, cuda=False)
+    main(img_path=img_path, output_dir=output_dir, work_dir=work_dir, cuda=True)
