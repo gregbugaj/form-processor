@@ -1,7 +1,7 @@
 # Add parent to the search path so we can reference the module here without throwing and exception 
 import os, sys
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
-from craft_text_detector.image_utils import read_image
+from utils.image_utils import read_image
 
 import cv2
 import matplotlib.pyplot as plt
