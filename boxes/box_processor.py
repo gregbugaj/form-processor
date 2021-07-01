@@ -5,6 +5,7 @@ sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.par
 
 from utils.resize_image import resize_image
 from utils.overlap import find_overlap
+from utils.image_utils import paste_fragment
 
 import torch
 import torch.nn as nn
@@ -103,12 +104,6 @@ def ensure_exists(dir):
         os.makedirs(dir)   
     return dir
         
-def paste_fragment(overlay, fragment, pos=(0,0)):
-    # You may need to convert the color.
-    fragment = cv2.cvtColor(fragment, cv2.COLOR_BGR2RGB)
-    fragment_pil = Image.fromarray(fragment)
-    overlay.paste(fragment_pil, pos) 
-
 
 def line_detection(src):
     """
@@ -140,7 +135,6 @@ def line_detection(src):
     # detected_lines = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, vertical_kernel, iterations=2)
 
     cv2.imwrite('/home/greg/dev/form-processor/result/detected_linesXX.png', detected_lines)
-
 
 
 def get_prediction(craft_net, image, text_threshold, link_threshold, low_text, cuda, poly, canvas_size, mag_ratio, refine_net=None):
@@ -311,20 +305,31 @@ class BoxProcessor:
             idxs = np.argsort(y1)
             lines = []
 
+            print(f' all_box_lines : {all_box_lines.shape}, {all_box_lines.size}')
+
             while len(idxs) > 0:
                 last = len(idxs) - 1
                 idx = idxs[last]
                 box_line = all_box_lines[idx]
                 overlaps, indexes = find_overlap(box_line, all_box_lines)
                 overlaps = np.array(overlaps)
+
                 min_x = overlaps[:, 0].min()
                 min_y = overlaps[:, 1].min()
                 max_w = overlaps[:, 2].max()
                 max_h = overlaps[:, 3].max()
                 box = [min_x, min_y, max_w, max_h]
                 lines.append(box)
-                idxs = np.delete(idxs, indexes)
-			
+                print(f' idxs/indexes :  {idxs} len = {len(idxs)}  /  {indexes} len = {len(indexes)}')
+                print(f' shape : {idxs.shape}, {indexes.shape}')
+                print(f' size : {idxs.size}, {indexes.size}')
+                # there is a bug where there are not indexes 
+                # last/idx : 8   ,  2  >  [0 1 4 3 6 5 7 8 2] len = 9  /  [0 1 2 3 4 5 6 7 8 9] len = 10
+                # Ex : 'index 9 is out of bounds for axis 0 with size 9'
+                #  numpy.delete(arr, obj, axis=None)[source]¶
+                indexes = indexes[indexes < idxs.size]
+                idxs = np.delete(idxs, indexes, axis=0)         
+            
             # reverse to get the right order
             lines = np.array(lines)[::-1]
             line_size = len(lines)
@@ -381,22 +386,20 @@ class BoxProcessor:
             # ValueError: could not broadcast input array from shape (42,77,3) into shape (42,)
             return rect_from_poly, fragments, rect_line_numbers, prediction_result
         except Exception as ident:
-            # raise ident
+            raise ident
             print(ident)
 
         return [], [], [], None
 
-    def process_full_extraction(self, id, image):
+    def process_full_extraction(self, id, image, link_threshold=0.3):
         """
             Do full image text extraction
         """
-        print('Processing full page extraction: {}'.format(id))
+        print('Processing full image extraction: {}'.format(id))
 
         debug_dir = ensure_exists(os.path.join(self.work_dir,id,'boxes_full'))
         crops_dir = ensure_exists(os.path.join(self.work_dir,id,'crops_full'))
 
-        # # read image
-        # image = read_image(image)
         h=image.shape[0]
         w=image.shape[1]
         image=copy.deepcopy(image)
@@ -407,7 +410,7 @@ class BoxProcessor:
             craft_net=self.craft_net,
             refine_net=self.refine_net,
             text_threshold=0.7,
-            link_threshold=0.3,
+            link_threshold=link_threshold,
             low_text=0.4,
             cuda=self.cuda,
             poly=True,
@@ -431,8 +434,8 @@ class BoxProcessor:
         
         pil_image = Image.new('RGB', (image.shape[1], image.shape[0]), color=(255,255,255,0))
 
-        rect_from_poly=[]
-        fragments=[]
+        rect_from_poly = []
+        fragments = []
 
         for i, region in enumerate(regions):
             region = np.array(region).astype(np.int32).reshape((-1))
@@ -458,7 +461,7 @@ class BoxProcessor:
         pil_image.save(savepath, format='JPEG', subsampling=0, quality=100)
 
         cv_img = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
-        return np.array(rect_from_poly), np.array(fragments), cv_img, prediction_result 
+        return rect_from_poly, fragments, cv_img, prediction_result 
 
 class Object(object):
     pass 
@@ -521,7 +524,6 @@ if __name__ == '__main__':
         args.poly = True
 
     t = time.time()
-
 
     """ For test images in a folder """
     image_list, _, _ = craft.file_utils.get_files(args.test_folder)

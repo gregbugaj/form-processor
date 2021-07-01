@@ -546,14 +546,12 @@ class FormSegmeneter:
             Extract mask fragments into individual boxes based on the text overlay 
         """
         print('Processing  fragment_to_box_extraction: {}'.format(id))
-        debug_dir =  ensure_exists(os.path.join(self.work_dir,id,'boxes_mask'))
-        crops_dir = ensure_exists(os.path.join(self.work_dir,id,'crops_mask'))
+        debug_dir = ensure_exists(os.path.join(self.work_dir,id,'boxes_mask'))
         img = txt_overlay_img
 
         for key in fragments.keys():
             frag = fragments[key]
-            snippet=frag['snippet']
-            box=frag['box']
+            box = frag['box']
             # it is possible to get bad box
             if box is None:
                 continue

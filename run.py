@@ -1,6 +1,9 @@
 
 import json
 import time
+
+from PIL import Image
+from utils.overlap import find_overlap
 from form import processor
 from operator import ne
 import os
@@ -15,6 +18,8 @@ from boxes.box_processor import BoxProcessor
 from form.numpyencoder import NumpyEncoder
 from form.icr_processor import IcrProcessor
 from form.field_processor import FieldProcessor
+
+from utils.image_utils import paste_fragment
 
 def ensure_exists(dir):
     if not os.path.exists(dir):
@@ -33,12 +38,84 @@ class FormProcessor:
         print('Initializing processor')
         m0 = current_milli_time()
         self.segmenter = FormSegmeneter(work_dir)
-        self.fproc = FieldProcessor(work_dir)
-        self.boxer = BoxProcessor(work_dir, cuda=False)
-        self.icr = IcrProcessor(work_dir)
+        self.field_processor = FieldProcessor(work_dir)
+        self.box_processor = BoxProcessor(work_dir, cuda=False)
+        self.icr_processor = IcrProcessor(work_dir)
         m1 = current_milli_time()-m0
 
         print('Form processor initialized in {} ms'.format(m1))
+
+    def apply_heuristics(self, id, key, seg_box, overlay_img):
+        """
+            Apply heuristics to the overlay
+            Currently this only applies to fields that can be segmented into multiple lines without cleaning
+        """
+        print(f'Applying heuristics to segmentaion box : {seg_box}')
+        work_dir =  self.work_dir
+
+        try:
+            if seg_box is None:
+                return False, None
+
+            box_processor = self.box_processor
+            img = overlay_img
+            snippet = img[seg_box[1]:seg_box[1]+seg_box[3], seg_box[0]:seg_box[0]+seg_box[2]]
+            snippet = cv2.cvtColor(snippet, cv2.COLOR_RGB2BGR)# convert RGB to BGR
+            boxes, fragments, lines, _ = box_processor.extract_bounding_boxes(id, key, snippet)
+
+            # header/dataline
+            # 1-based dataline indexes
+            pil_image = Image.new('RGB', (snippet.shape[1], snippet.shape[0]), color=(255,255,255,0))
+            max_line_number = 0
+
+            data_line_indexes = [1] 
+            all_box_lines = []
+
+            for i in range(len(boxes)):
+                box, fragment, line = boxes[i], fragments[i], lines[i]
+                if line == 2:
+                    paste_fragment(pil_image, fragment, (box[0], box[1]))
+                    all_box_lines.append(box)
+
+                if line > max_line_number:
+                    max_line_number = line
+                    
+            # We are only applying this to header/dataline 
+            if len(all_box_lines) == 0 or max_line_number != 2:
+                return False, None
+
+            all_box_lines = np.array(all_box_lines)
+            min_x = all_box_lines[:, 0].min()
+            min_y = all_box_lines[:, 1].min()
+            max_w = all_box_lines[:, 2].max()
+            max_h = all_box_lines[:, 3].max()
+
+            box = [min_x, min_y, max_w, max_h]
+
+            A1 = (min_x + max_w) * max_h
+            A2 = seg_box[2] * seg_box[3]
+            ar = A1/A2
+            lr = max_h / seg_box[3]
+
+            print(f'Target box : {box}')
+            print(f'Area box   : {A1}')
+            print(f'Area seg   : {A2}')
+            print(f'Area ratio : {ar}')
+
+            if ar < 0.05 or ar > 0.30 or lr < 0.30:
+                return False, None
+
+
+            debug_dir = ensure_exists(os.path.join(work_dir, id, 'heuristics'))
+            savepath = os.path.join(debug_dir, "%s.png" % (key))
+
+            pil_image.save(savepath, format='PNG', subsampling=0, quality=100)
+            cv_img = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
+
+            return True, cv_img
+        except Exception as ident:
+            print(ident)
+        return False, None
 
     def process(self, img_path):
         m0 = current_milli_time()
@@ -49,12 +126,12 @@ class FormProcessor:
         debug_dir = ensure_exists(os.path.join(work_dir, id, 'work'))
 
         segmenter = self.segmenter
-        fproc = self.fproc
-        boxer = self.boxer
-        icr = self.icr
+        field_processor = self.field_processor
+        box_processor = self.box_processor
+        icr_processor = self.icr_processor
 
         seg_fragments, img, segmask = segmenter.segment(id, img_path)
-        overlay_boxes, box_fragment_imgs, overlay_img, _ = boxer.process_full_extraction(id, img)
+        overlay_boxes, box_fragment_imgs, overlay_img, _ = box_processor.process_full_extraction(id, img)
         segmenter.fragment_to_box_snippet(id, seg_fragments, overlay_img)
 
         print('-------- Image information -----------')
@@ -79,7 +156,7 @@ class FormProcessor:
         # All models need to be rebuild
         # fields = ['HCFA02', 'HCFA33_BILLING', 'HCFA05_ADDRESS', 'HCFA05_CITY', 'HCFA05_STATE', 'HCFA05_ZIP', 'HCFA05_PHONE']
         fields = ['HCFA33_BILLING']
-        fields = ['HCFA02']
+        fields = ['HCFA02', 'HCFA02']
         
         print(f'All fields : {fields}')
         meta = {
@@ -90,16 +167,24 @@ class FormProcessor:
         field_results = []
 
         for field in fields:
-            print(f'Processing field : {field}')
-
+            print(f'Processing field : {field}')            
             icr_results = {}
             failed = False
+
             try:
-                snippet = seg_fragments[field]['snippet']
-                seg_fragments[field]['snippet_clean'] = fproc.process(id, field, snippet)
-                snippet = seg_fragments[field]['snippet_clean']            
-                boxes, fragments, lines, _ = boxer.extract_bounding_boxes(id, field, snippet)
-                icr_results = icr.icr_extract(id, field, snippet, boxes, fragments, lines)
+                fragment = seg_fragments[field]
+                snippet = fragment['snippet']
+                box = fragment['box']
+                applied, snippet_heuristic = self.apply_heuristics(id, field, box, overlay_img)    
+
+                if applied:
+                    snippet = snippet_heuristic
+                else:
+                    snippet = field_processor.process(id, field, snippet)
+
+                fragment['snippet_clean'] = snippet
+                boxes, fragments, lines, _ = box_processor.extract_bounding_boxes(id, field, snippet)
+                icr_results = icr_processor.icr_extract(id, field, snippet, boxes, fragments, lines)
             except Exception as ident:
                 failed = True
                 print(f'Field failed : {field}')
@@ -155,6 +240,7 @@ if __name__ == '__main__':
     args = parse_args()
 
     args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3101.original.tif'
+    args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3103.original.tif'
     args.work_dir = '/tmp/form-segmentation'
 
     img_path = args.img_src
