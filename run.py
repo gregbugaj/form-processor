@@ -20,7 +20,6 @@ from form.field_processor import FieldProcessor
 
 from utils.image_utils import paste_fragment
 
-
 # logging
 import logging
 from logging.handlers import RotatingFileHandler
@@ -57,10 +56,14 @@ class FormProcessor:
 
     def __load(self):
         log.info('Initializing processor')
+        # All models need to be rebuild
+        segmenter_models = dict()
+        for field_config in self.config['fields']:
+            segmenter_models[field_config['field']] = field_config['segmenter']
 
         m0 = current_milli_time()
         self.segmenter = FormSegmeneter(work_dir)
-        self.field_processor = FieldProcessor(work_dir)
+        self.field_processor = FieldProcessor(work_dir, segmenter_models)
         self.box_processor = BoxProcessor(work_dir, cuda=False)
         self.icr_processor = IcrProcessor(work_dir)
         m1 = current_milli_time()-m0
@@ -166,9 +169,6 @@ class FormProcessor:
             cv2.imwrite(file_path, canvas_img)
 
         # All models need to be rebuild
-        # fields = ['HCFA02', 'HCFA33_BILLING', 'HCFA05_ADDRESS', 'HCFA05_CITY', 'HCFA05_STATE', 'HCFA05_ZIP', 'HCFA05_PHONE']
-        # fields = ['HCFA33_BILLING']
-        # fields = ['HCFA05_ADDRESS', 'HCFA05_CITY', 'HCFA05_STATE', 'HCFA05_ZIP', 'HCFA02']
         fields = config['fields']
         field_results = []
 
@@ -194,11 +194,13 @@ class FormProcessor:
                 box = fragment['box']
                 # TODO : Dynamicly call heuristics method rather than hardcode it here
                 if heuristics['enabled']:
-                    heuristics_applied, snippet = self.apply_heuristics(id, field, box, overlay_img, heuristics)    
+                    heuristics_applied, heuristics_snippet = self.apply_heuristics(id, field, box, overlay_img, heuristics)    
                     m1 = current_milli_time()
                     log.info('[%s] [%s] heuristics applied, time : %s, %s(ms)', id, field, heuristics_applied, m1-m0)
                     
-                if not heuristics_applied:
+                if heuristics_applied:
+                    snippet = heuristics_snippet
+                else:
                     m0 = current_milli_time()
                     snippet = field_processor.process(id, field, snippet)
                     m1 = current_milli_time()
@@ -265,7 +267,7 @@ def main(config_path, img_path, output_dir, work_dir, cuda):
     processor = FormProcessor(work_dir=work_dir, config=config, cuda=cuda)
     results = processor.process(img_path)
     file_path = os.path.join(output_dir, "results.json")
-    
+
     print(f'Saving results to : {file_path}')
     with open(file_path, 'w') as f:
         json.dump(results, f,  sort_keys=True,  separators=(',', ': '), ensure_ascii=False, indent=4, cls=NumpyEncoder)
