@@ -54,7 +54,7 @@ class FormProcessor:
         icr = self.icr
 
         seg_fragments, img, segmask = segmenter.segment(id, img_path)
-        rectangles, box_fragment_imgs, overlay_img, _ = boxer.process_full_extraction(id, img)
+        overlay_boxes, box_fragment_imgs, overlay_img, _ = boxer.process_full_extraction(id, img)
         segmenter.fragment_to_box_snippet(id, seg_fragments, overlay_img)
 
         print('-------- Image information -----------')
@@ -79,7 +79,7 @@ class FormProcessor:
         # All models need to be rebuild
         # fields = ['HCFA02', 'HCFA33_BILLING', 'HCFA05_ADDRESS', 'HCFA05_CITY', 'HCFA05_STATE', 'HCFA05_ZIP', 'HCFA05_PHONE']
         fields = ['HCFA33_BILLING']
-        fields = ['HCFA02', 'HCFA02', 'HCFA02','HCFA02']
+        fields = ['HCFA02']
         
         print(f'All fields : {fields}')
         meta = {
