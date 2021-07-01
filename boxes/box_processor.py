@@ -249,14 +249,11 @@ class BoxProcessor:
             return box array, fragment array, line_number array,  prediciton results
         """
         print('Extracting bounding boxes : {}, {}'.format(id, key))
+        
         try:
             debug_dir = ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'debug'))
             crops_dir = ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'crop'))
             output_dir = ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'output'))
-
-            print(f'debug_dir : {debug_dir}')
-            print(f'crops_dir : {crops_dir}')
-            print(f'output_dir : {output_dir}')
 
             image = copy.deepcopy(image)
 
@@ -305,8 +302,6 @@ class BoxProcessor:
             idxs = np.argsort(y1)
             lines = []
 
-            print(f' all_box_lines : {all_box_lines.shape}, {all_box_lines.size}')
-
             while len(idxs) > 0:
                 last = len(idxs) - 1
                 idx = idxs[last]
@@ -320,10 +315,8 @@ class BoxProcessor:
                 max_h = overlaps[:, 3].max()
                 box = [min_x, min_y, max_w, max_h]
                 lines.append(box)
-                print(f' idxs/indexes :  {idxs} len = {len(idxs)}  /  {indexes} len = {len(indexes)}')
-                print(f' shape : {idxs.shape}, {indexes.shape}')
-                print(f' size : {idxs.size}, {indexes.size}')
-                # there is a bug where there are not indexes 
+
+                # there is a bug when there is a box index greater than candidate index
                 # last/idx : 8   ,  2  >  [0 1 4 3 6 5 7 8 2] len = 9  /  [0 1 2 3 4 5 6 7 8 9] len = 10
                 # Ex : 'index 9 is out of bounds for axis 0 with size 9'
                 #  numpy.delete(arr, obj, axis=None)[source]¶

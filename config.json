@@ -1,9 +1,12 @@
 {
-    "fields": [
-        {
-            "field": "HCFA02",
-            "enabled": true,
-            "multiline":false
-        }
-    ]
+  "fields": [
+    {
+      "field": "HCFA02",
+      "enabled": true,
+      "heuristics": {
+        "enabled": true,
+        "format": ["header", "data"]
+      }
+    }
+  ]
 }
