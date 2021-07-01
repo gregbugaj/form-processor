@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 # Add parent to the search path so we can reference the modules(craft, pix2pix) here without throwing and exception 
 import os, sys
-from utils.nms import non_max_suppression_fast
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
 
-import time
+from utils.resize_image import resize_image
+from utils.overlap import find_overlap
 
 import torch
 import torch.nn as nn
@@ -12,7 +12,6 @@ import torch.backends.cudnn as cudnn
 from torch.autograd import Variable
 
 from PIL import Image
-from utils.resize_image import resize_image
 
 import time
 import numpy as np
@@ -110,30 +109,6 @@ def paste_fragment(overlay, fragment, pos=(0,0)):
     fragment_pil = Image.fromarray(fragment)
     overlay.paste(fragment_pil, pos) 
 
-def find_overlap(box, data):
-    overalps=[]
-    indexes=[]
-
-    if len(data) == 0:
-        return [], []
-
-    x,y,w,h = box
-    x1min = x
-    x1max = x+w
-    y1min = y
-    y1max = y+h
-
-    for i, bb in enumerate(data):
-        _x,_y,_w,_h = bb
-        x2min = _x
-        x2max = _x+_w
-        y2min = _y
-        y2max = _y+_h
-        if (x1min<x2max and x2min<x1max and y1min < y2max and y2min < y1max) :
-            overalps.append(bb)
-            indexes.append(i)
-
-    return np.array(overalps), np.array(indexes)
 
 def line_detection(src):
     """
