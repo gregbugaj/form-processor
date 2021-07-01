@@ -1,9 +1,49 @@
 {
-    "fields": [
-        {
-            "field": "HCFA02",
-            "enabled": true,
-            "multiline":false
-        }
-    ]
+  "fields": [
+    {
+      "field": "HCFA02",
+      "enabled": true,
+      "heuristics": {
+        "enabled": true,
+        "format": ["header", "data"]
+      },
+      "segmenter": "HCFA02"
+    },
+    {
+      "field": "HCFA05_ADDRESS",
+      "enabled": true,
+      "heuristics": {
+        "enabled": true,
+        "format": ["header", "data"]
+      },
+      "segmenter": "HCFA02"
+    },
+    {
+      "field": "HCFA05_CITY",
+      "enabled": true,
+      "heuristics": {
+        "enabled": true,
+        "format": ["header", "data"]
+      },
+      "segmenter": "HCFA02"
+    },
+    {
+      "field": "HCFA05_ZIP",
+      "enabled": true,
+      "heuristics": {
+        "enabled": true,
+        "format": ["header", "data"]
+      },
+      "segmenter": "HCFA02"
+    },
+    {
+      "field": "HCFA05_STATE",
+      "enabled": true,
+      "heuristics": {
+        "enabled": true,
+        "format": ["header", "data"]
+      },
+      "segmenter": "HCFA02"
+    }
+  ]
 }

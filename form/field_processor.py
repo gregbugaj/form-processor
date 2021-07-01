@@ -11,7 +11,7 @@ from matplotlib import colors
 from matplotlib.colors import hsv_to_rgb, rgb_to_hsv
 from PIL import Image
 import numpy as np
-import time
+import json
 
 from pix2pix.options.test_options import TestOptions
 from pix2pix.data import create_dataset
@@ -37,27 +37,16 @@ def ensure_exists(dir):
 
 class FieldProcessor:
     
-    def __init__(self, work_dir) -> None:
+    def __init__(self, work_dir, models:dict = None) -> None:
         print("Initializing Field processor")
-        self.work_dir=work_dir
-        
-        # models can be shared
-        self.models=dict()
-        
-        self.models['HCFA02'] = 'HCFA02'
-        self.models['HCFA05_ADDRESS'] = 'HCFA02' # Reused
-        self.models['HCFA05_CITY'] = 'HCFA02' # Reused
-        self.models['HCFA05_STATE'] = 'HCFA02' # Reused
-        self.models['HCFA05_ZIP'] = 'HCFA02' # Reused
-        self.models['HCFA05_PHONE'] = 'HCFA02' # Reused
-
-        self.models['HCFA33_BILLING'] = 'box33_pix2pix'
-        self.models['HCFA21'] = 'diagnosis_code'
+        if models == None:
+            raise Exception('Invalid argument exception for modeld')
+        self.work_dir = work_dir 
+        self.models = models
 
     def postprocess(self, src):
         """
             post process extracted image
-
             1) Remove leftover vertical lines
         """
         # Transform source image to gray if it is not already
@@ -113,7 +102,6 @@ class FieldProcessor:
         ensure_exists(work_dir)
         ensure_exists(debug_dir)
 
-        print(f'debug_dir : {debug_dir}')
         opt.dataroot = work_dir
         name = 'segmenation'
 
@@ -152,8 +140,6 @@ class FieldProcessor:
         """
             Model setup
         """
-        import json
-
         name = self.models[key]
         config_file = os.path.join('./models/segmenter', name, 'config.json')
 
@@ -163,45 +149,8 @@ class FieldProcessor:
         with open(config_file) as f:
             data = json.load(f)
         
-        args_default = data['args']
-        print(data)
+        args = data['args']
 
-        if False:
-            args_default = [
-                '--dataroot', './data', 
-                '--name', name,
-                '--model', 'test',
-                '--netG', 'resnet_9blocks',
-                '--direction', 'AtoB',
-                '--model', 'test',
-                '--dataset_mode', 'single',
-                '--gpu_id', '-1',
-                '--norm', 'batch',
-                '--preprocess', 'none',
-                '--checkpoints_dir', './models/segmenter',
-                '--input_nc', '1',
-                '--output_nc', '1',
-            ]
-
-            # override model defaults       
-            # TODO : Load config from files
-            argsmap = dict()
-            argsmap['HCFA02'] = args_default
-            argsmap['HCFA33_BILLING'] = args_default
-            argsmap['HCFA21'] = args_default
-
-            if key == 'HCFA33_BILLING' or key == 'HCFA21':
-            # if  key == 'HCFA21':
-                args_default = argsmap[key]
-                args_default.append('--norm')
-                args_default.append('instance')
-                args_default.append('--no_dropout')
-                args_default.append('--input_nc')
-                args_default.append('3')
-                args_default.append('--output_nc')
-                args_default.append('3')
-
-        args = args_default
         opt = TestOptions().parse(args)  # get test options
         # hard-code parameters for test
         opt.eval = False   # test code only supports num_threads = 0
