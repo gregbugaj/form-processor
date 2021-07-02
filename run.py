@@ -19,6 +19,7 @@ from form.icr_processor import IcrProcessor
 from form.field_processor import FieldProcessor
 
 from utils.image_utils import paste_fragment
+from utils.utils import current_milli_time, ensure_exists
 
 # logging
 import logging
@@ -38,13 +39,6 @@ fh = handlers.RotatingFileHandler(LOGFILE, maxBytes=(1048576 * 5), backupCount=7
 fh.setFormatter(format)
 log.addHandler(fh)
 
-def ensure_exists(dir):
-    if not os.path.exists(dir):
-        os.makedirs(dir)   
-    return dir   
-
-def current_milli_time():
-    return round(time.time() * 1000)   
 class FormProcessor:
     def __init__(self, work_dir:str = '/tmp/form-segmentation', config:object=None, cuda: bool = False) -> None:
         log.info("Form processor [cuda={}]".format(cuda))
@@ -52,6 +46,7 @@ class FormProcessor:
         log.info("Config   : %s", config)
         self.work_dir = work_dir
         self.config = config
+        self.cuda = cuda
         self.__load()
 
     def __load(self):
@@ -64,8 +59,8 @@ class FormProcessor:
         m0 = current_milli_time()
         self.segmenter = FormSegmeneter(work_dir)
         self.field_processor = FieldProcessor(work_dir, segmenter_models)
-        self.box_processor = BoxProcessor(work_dir, cuda=False)
-        self.icr_processor = IcrProcessor(work_dir)
+        self.box_processor = BoxProcessor(work_dir, cuda=self.cuda)
+        self.icr_processor = IcrProcessor(work_dir, cuda=self.cuda)
         m1 = current_milli_time()-m0
 
         log.info('Form processor initialized in {} ms'.format(m1))

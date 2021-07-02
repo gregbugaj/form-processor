@@ -1,6 +1,9 @@
 
 # Add parent to the search path so we can reference the module here without throwing and exception 
+from logging import Handler, raiseExceptions
 import os, sys
+
+from numpy.core.fromnumeric import shape
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
 
 import cv2
@@ -19,21 +22,21 @@ from pix2pix.models import create_model
 from pix2pix.util.visualizer import save_images
 from pix2pix.util.util import tensor2im
  
-def viewImage(image, name='Display'):
-    cv2.namedWindow(name, cv2.WINDOW_AUTOSIZE)
-    cv2.imshow(name, image)
-    cv2.waitKey(0)
-    cv2.destroyAllWindows()
+from utils.utils import current_milli_time, ensure_exists
+from utils.image_utils import imwrite
 
-def imwrite(path, img):
-    try:
-        cv2.imwrite(path, img)
-    except Exception as ident:
-        print(ident)
+from utils.resize_image import resize_image
 
-def ensure_exists(dir):
-    if not os.path.exists(dir):
-        os.makedirs(dir)        
+def resize_handler(image, args_dict):
+    """
+        handler for resizing images :
+        args example : {'width': 1024, 'height': 256, 'anchor': 'center'}
+    """
+    width = args_dict['width']
+    height = args_dict['height']
+    anchor = args_dict['anchor']
+
+    return resize_image(image, (height, width), color=(255, 255, 255))
 
 class FieldProcessor:
     
@@ -91,23 +94,46 @@ class FieldProcessor:
         """
             Process data field
         """
-        # key = fragment['key']
         print("Processing field : {}".format(key))
-        # snippet = fragment['snippet_overlay']
-        opt, model = self.__setup(key)
+        opt, model, config = self.__setup(key)
    
-        work_dir = os.path.join(self.work_dir, id, 'fields', key)
-        debug_dir = os.path.join(self.work_dir, id, 'fields_debug', key)
-       
-        ensure_exists(work_dir)
-        ensure_exists(debug_dir)
-
+        work_dir = ensure_exists(os.path.join(self.work_dir, id, 'fields', key))
+        debug_dir = ensure_exists(os.path.join(self.work_dir, id, 'fields_debug', key))
+        
         opt.dataroot = work_dir
         name = 'segmenation'
 
-        image_name = '%s.png' % (key)
-        save_path = os.path.join(work_dir, image_name)                   
-        imwrite(save_path, snippet)
+        # preprocessing
+        handlers = {
+            "resize":resize_handler
+        }
+
+        shape_before = snippet.shape
+        if 'preprocess' in config:
+            for pp_config in config['preprocess']:
+                # {'id': 'prepare-data-for-unet', 'type': 'resize', 'width': 1024, 'height': 256, 'anchor': 'center'}
+                print(f'Preprocessing : {pp_config}' )
+                pp_id = pp_config['id']
+                type = pp_config['type']
+                args = pp_config['args']
+                
+                handler = handlers.get(type, lambda: f'Unknown handler type : {type}')
+                print(f'Executing handler : {pp_id}')
+                ret = handler(snippet, args)
+                if len(ret) == 0:
+                    raise Exception(f'Handler should return processed image but got None')
+                snippet = ret
+
+        shape_after = snippet.shape
+        print('Shape info *************')
+        print(f'Shape before : {shape_before}')
+        print(f'Shape after : {shape_after}')
+
+        # Debug 
+        if True:
+            image_name = '%s.png' % (key)
+            save_path = os.path.join(work_dir, image_name)                   
+            imwrite(save_path, snippet)
 
         dataset = create_dataset(opt)  # create a dataset given opt.dataset_mode and other options
         
@@ -163,4 +189,4 @@ class FieldProcessor:
         model = create_model(opt)      # create a model given opt.model and other options
         model.setup(opt)               # regular setup: load and print networks; create schedulers
         
-        return opt, model
+        return opt, model, data

@@ -12,7 +12,7 @@
     
     {
       "field": "HCFA02",
-      "enabled": false,
+      "enabled": true,
       "heuristics": {
         "enabled": true,
         "format": ["header", "data"]
@@ -21,12 +21,12 @@
     },
     {
       "field": "HCFA05_ADDRESS",
-      "enabled": false,
+      "enabled": true,
       "heuristics": {
         "enabled": true,
         "format": ["header", "data"]
       },
-      "segmenter": "HCFA02"
+      "segmenter": "HCFA05_ADDRESS"
     },
     {
       "field": "HCFA05_CITY",

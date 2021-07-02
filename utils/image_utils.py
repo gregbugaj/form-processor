@@ -29,3 +29,17 @@ def paste_fragment(overlay, fragment, pos=(0,0)):
     fragment = cv2.cvtColor(fragment, cv2.COLOR_BGR2RGB)
     fragment_pil = Image.fromarray(fragment)
     overlay.paste(fragment_pil, pos)     
+
+
+def viewImage(image, name='Display'):
+    cv2.namedWindow(name, cv2.WINDOW_AUTOSIZE)
+    cv2.imshow(name, image)
+    cv2.waitKey(0)
+    cv2.destroyAllWindows()
+
+
+def imwrite(path, img):
+    try:
+        cv2.imwrite(path, img)
+    except Exception as ident:
+        print(ident)
