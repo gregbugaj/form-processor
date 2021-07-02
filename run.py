@@ -171,6 +171,7 @@ class FormProcessor:
         # All models need to be rebuild
         fields = config['fields']
         field_results = []
+        s = current_milli_time()
 
         for field_config in fields:
             log.info('[%s] [%s] Start field processing', id, field_config)
@@ -184,7 +185,6 @@ class FormProcessor:
 
             icr_results = {}
             failed = False
-            s = current_milli_time()
             heuristics_applied = False
             
             try:
@@ -276,7 +276,7 @@ if __name__ == '__main__':
     args = parse_args()
 
     args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3101.original.tif'
-    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3103.original.tif'
+    args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3103.original.tif'
     args.work_dir = '/tmp/form-segmentation'
     args.config = './config.json'
 
