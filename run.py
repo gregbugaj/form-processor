@@ -118,7 +118,7 @@ class FormProcessor:
 
             A1 = (min_x + max_w) * max_h
             A2 = seg_box[2] * seg_box[3]
-            ar = A1/A2
+            ar = A1 / A2
             lr = max_h / seg_box[3]
 
             if ar < 0.05 or ar > 0.30 or lr < 0.30:

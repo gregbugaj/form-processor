@@ -1,6 +1,16 @@
 {
   "fields": [
     {
+      "field": "HCFA33_BILLING",
+      "enabled": true,
+      "heuristics": {
+        "enabled": false,
+        "format": []
+      },
+      "segmenter": "HCFA33_BILLING"
+    },    
+    
+    {
       "field": "HCFA02",
       "enabled": false,
       "heuristics": {
