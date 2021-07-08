@@ -256,19 +256,19 @@ class BoxProcessor:
             output_dir = ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'output'))
 
             image = copy.deepcopy(image)
-            w = image.shape[1] # 1280
+            w = 1280 # image.shape[1] # 1280
             
             bboxes, polys, score_text = get_prediction(
                 image=image,
                 craft_net=self.craft_net,
                 refine_net=None,
                 text_threshold=0.7,
-                link_threshold=0.4,
+                link_threshold=0.5,
                 low_text=0.4,
                 cuda=self.cuda,
                 poly=True,
                 canvas_size=w, 
-                mag_ratio=1 # 1.5
+                mag_ratio=1.5
             )
             
             prediction_result = dict()
@@ -319,7 +319,7 @@ class BoxProcessor:
                 max_w = overlaps[:, 2].max()
                 max_h = overlaps[:, 3].max()
                 max_y = 0
-                
+
                 for overlap in overlaps:
                     x,y,w,h = overlap
                     dh = y + h
