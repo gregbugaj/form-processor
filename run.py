@@ -170,6 +170,9 @@ class FormProcessor:
 
         for field_config in fields:
             log.info('[%s] [%s] Start field processing', id, field_config)
+            seg_name = field_config['segmenter']
+
+            print(f'******************** ::: {seg_name}')
 
             field = field_config['field']
             heuristics = field_config['heuristics']
@@ -196,10 +199,14 @@ class FormProcessor:
                 if heuristics_applied:
                     snippet = heuristics_snippet
                 else:
-                    m0 = current_milli_time()
-                    snippet = field_processor.process(id, field, snippet)
-                    m1 = current_milli_time()
-                    log.info('[%s] [%s] Field processor time : %s(ms)', id, field, m1-m0)
+                    # if we don't have a segmenation specified then we skip it
+                    if seg_name == '':
+                        log.info('[%s] [%s] Skipping segmenation', id, field)
+                    else:
+                        m0 = current_milli_time()
+                        snippet = field_processor.process(id, field, snippet)
+                        m1 = current_milli_time()
+                        log.info('[%s] [%s] Field processor time : %s(ms)', id, field, m1-m0)
 
                 fragment['snippet_clean'] = snippet
                 m0 = current_milli_time()
@@ -270,8 +277,10 @@ def main(config_path, img_path, output_dir, work_dir, cuda):
 if __name__ == '__main__':
     args = parse_args()
 
-    args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3101.original.tif'
+    args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3101.original.tif' # Causes error 
     args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3103.original.tif'
+    args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3102.original.tif'
+    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3104.original.tif'
     args.work_dir = '/tmp/form-segmentation'
     args.config = './config.json'
 

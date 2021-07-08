@@ -132,7 +132,6 @@ class FormSegmeneter:
         opt.no_flip = True    # no flip; comment this line if results on flipped images are needed.
         opt.display_id = -1   # no visdom display; the test code saves the results to a HTML file.
 
-        print(opt)
         model = create_model(opt)      # create a model given opt.model and other options
         model.setup(opt)               # regular setup: load and print networks; create schedulers
 

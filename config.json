@@ -1,59 +1,14 @@
 {
   "fields": [
     {
-      "field": "HCFA33_BILLING",
+      "field": "HCFA24",
       "enabled": true,
       "heuristics": {
         "enabled": false,
         "format": []
       },
-      "segmenter": "HCFA33_BILLING"
-    },    
-    
-    {
-      "field": "HCFA02",
-      "enabled": true,
-      "heuristics": {
-        "enabled": true,
-        "format": ["header", "data"]
-      },
-      "segmenter": "HCFA02"
-    },
-    {
-      "field": "HCFA05_ADDRESS",
-      "enabled": true,
-      "heuristics": {
-        "enabled": true,
-        "format": ["header", "data"]
-      },
-      "segmenter": "HCFA05_ADDRESS"
-    },
-    {
-      "field": "HCFA05_CITY",
-      "enabled": false,
-      "heuristics": {
-        "enabled": true,
-        "format": ["header", "data"]
-      },
-      "segmenter": "HCFA02"
-    },
-    {
-      "field": "HCFA05_ZIP",
-      "enabled": false,
-      "heuristics": {
-        "enabled": true,
-        "format": ["header", "data"]
-      },
-      "segmenter": "HCFA02"
-    },
-    {
-      "field": "HCFA05_STATE",
-      "enabled": false,
-      "heuristics": {
-        "enabled": true,
-        "format": ["header", "data"]
-      },
-      "segmenter": "HCFA02"
+      "segmenter": "SMP_HCFA24",
+      "text_model": "ALPHA_NUMERIC"
     }
   ]
 }

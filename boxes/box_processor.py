@@ -256,7 +256,8 @@ class BoxProcessor:
             output_dir = ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'output'))
 
             image = copy.deepcopy(image)
-
+            w = image.shape[1] # 1280
+            
             bboxes, polys, score_text = get_prediction(
                 image=image,
                 craft_net=self.craft_net,
@@ -266,8 +267,8 @@ class BoxProcessor:
                 low_text=0.4,
                 cuda=self.cuda,
                 poly=True,
-                canvas_size=1280, 
-                mag_ratio=1.5
+                canvas_size=w, 
+                mag_ratio=1 # 1.5
             )
             
             prediction_result = dict()
@@ -275,13 +276,16 @@ class BoxProcessor:
             prediction_result['polys'] = polys
             prediction_result['heatmap'] = score_text
             
-            regions = bboxes # prediction_result["boxes"]
+            regions = bboxes
+            img_h = image.shape[0]
+            img_w = image.shape[1]
 
-            img_h=image.shape[0]
-            img_w=image.shape[1]
-
-            # line detection
+            print('Line detection started')
+            lines = []
             all_box_lines = []
+            
+            print(f'regions : {len(regions)}')
+
             for idx, region in enumerate(regions):
                 region = np.array(region).astype(np.int32).reshape((-1))
                 region = region.reshape(-1, 2)
@@ -289,15 +293,16 @@ class BoxProcessor:
                 box = cv2.boundingRect(poly)
                 box = np.array(box).astype(np.int32)
                 x,y,w,h = box
-                h2 = (h / 2)
-                box_line = [0, y+h/3, img_w, h/2]
+                box_line = [0, y, img_w, h]
                 box_line = np.array(box_line).astype(np.int32)
                 all_box_lines.append(box_line)
-                # print(f' >  {cy} : {box} : {box_line}')
+                print(f' >  {idx} : {box} : {box_line}')
 
+            print(f'all_box_lines : {len(all_box_lines)}')
+            
             all_box_lines = np.array(all_box_lines)
             y1 = all_box_lines[:,1]
-            
+
             # sort boxes by the  y-coordinate of the bounding box
             idxs = np.argsort(y1)
             lines = []
@@ -313,9 +318,18 @@ class BoxProcessor:
                 min_y = overlaps[:, 1].min()
                 max_w = overlaps[:, 2].max()
                 max_h = overlaps[:, 3].max()
+                max_y = 0
+                
+                for overlap in overlaps:
+                    x,y,w,h = overlap
+                    dh = y + h
+                    if dh > max_y:
+                        max_y = dh
+
+                max_h = max_y - min_y
                 box = [min_x, min_y, max_w, max_h]
                 lines.append(box)
-
+                
                 # there is a bug when there is a box index greater than candidate index
                 # last/idx : 8   ,  2  >  [0 1 4 3 6 5 7 8 2] len = 9  /  [0 1 2 3 4 5 6 7 8 9] len = 10
                 # Ex : 'index 9 is out of bounds for axis 0 with size 9'
@@ -325,13 +339,68 @@ class BoxProcessor:
             
             # reverse to get the right order
             lines = np.array(lines)[::-1]
-            line_size = len(lines)
+            img_line = copy.deepcopy(image)
+
+            for line in lines:
+                x,y,w,h = line
+                color = list(np.random.random(size=3) * 256) 
+                cv2.rectangle(img_line, (x,y),(x+w,y+h), color, 1)
+
+            mask_file = '/tmp/form-segmentation/candidate-lines.png'
+            cv2.imwrite(mask_file, img_line)
+
+            # raise Exception('EX')
+            # refine lines as there could be lines that overlap
+            print(f'***** Line candidates size {len(lines)}')
+
+            # sort boxes by the  y-coordinate of the bounding box
+            y1 = lines[:,1]
+            idxs = np.argsort(y1)
+            refine_lines = []
+
+            while len(idxs) > 0:
+                last = len(idxs) - 1
+                idx = idxs[last]
+
+                box_line = lines[idx]
+                overlaps, indexes = find_overlap(box_line, lines)
+                overlaps = np.array(overlaps)
+
+                min_x = overlaps[:, 0].min()
+                min_y = overlaps[:, 1].min()
+                max_w = overlaps[:, 2].max()
+                max_h = overlaps[:, 3].max()
+                
+                box = [min_x, min_y, max_w, max_h]
+                refine_lines.append(box)
+                
+                # there is a bug when there is a box index greater than candidate index
+                # last/idx : 8   ,  2  >  [0 1 4 3 6 5 7 8 2] len = 9  /  [0 1 2 3 4 5 6 7 8 9] len = 10
+                # Ex : 'index 9 is out of bounds for axis 0 with size 9'
+                #  numpy.delete(arr, obj, axis=None)[source]¶
+                indexes = indexes[indexes < idxs.size]
+                idxs = np.delete(idxs, indexes, axis=0)   
+
+            print(f'Final line size : {len(refine_lines)}')
+            lines = np.array(refine_lines)[::-1] # Reverse
+            print(lines)
+
+            img_line = copy.deepcopy(image)
+
+            for line in lines:
+                x,y,w,h = line
+                color = list(np.random.random(size=3) * 256) 
+                cv2.rectangle(img_line, (x,y),(x+w,y+h), color, 1)
+
+            mask_file = '/tmp/form-segmentation/lines.png'
+            cv2.imwrite(mask_file, img_line)
             
-            print(f'Lines detected : {line_size}')
+            line_size = len(lines)
             result_folder = './result/'
             if not os.path.isdir(result_folder):
                 os.mkdir(result_folder)
-
+            
+            print(f'Estimated line count : {line_size}')
             # save score text
             filename = id
             mask_file = result_folder + "/res_" + filename + '_mask.jpg'
@@ -361,6 +430,14 @@ class BoxProcessor:
                 line_number = -1
                 if len(line_indexes) == 1:
                     line_number = line_indexes[0]+1
+
+                if line_number == -1:
+                    print('Line number == -1')
+                    print (line_indexes)
+                    print(box)
+                    raise Exception('Borked')
+
+                # assert line_number == -1 , 'Invalid line number : -1, this looks like a bug'
 
                 fragments.append(snippet)
                 rect_from_poly.append(box)

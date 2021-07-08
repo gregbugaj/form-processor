@@ -6,6 +6,7 @@ import os, sys
 from numpy.core.fromnumeric import shape
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
 
+import torch
 import cv2
 import matplotlib.pyplot as plt
 from mpl_toolkits.mplot3d import Axes3D
@@ -27,6 +28,28 @@ from utils.image_utils import imwrite
 
 from utils.resize_image import resize_image
 
+import segmentation_models_pytorch as smp
+import albumentations as albu
+
+class Object(object):
+    pass 
+
+
+ # helper function for data visualization
+def visualize(**images):
+    """PLot images in one row."""
+    n = len(images)
+    plt.figure(figsize=(16, 5))
+    for i, (name, image) in enumerate(images.items()):
+        print(f'shape : {image.shape}')
+        plt.subplot(1, n, i + 1)
+        plt.xticks([])
+        plt.yticks([])
+        plt.title(' '.join(name.split('_')).title())
+        plt.imshow(image)
+    plt.show()
+
+
 def resize_handler(image, args_dict):
     """
         handler for resizing images :
@@ -47,48 +70,102 @@ class FieldProcessor:
         self.work_dir = work_dir 
         self.models = models
 
-    def postprocess(self, src):
-        """
-            post process extracted image
-            1) Remove leftover vertical lines
-        """
-        # Transform source image to gray if it is not already
-        if len(src.shape) != 2:
-            gray = cv2.cvtColor(src, cv2.COLOR_BGR2GRAY)
-        else:
-            gray = src
+    def __process_pix2pix(self, key:str, snippet, opt, model, config) -> None:
+        """process pix2pix form cleanup"""
+        name = 'segmenation'
+        debug_dir = ensure_exists(os.path.join(self.work_dir, id, 'fields_debug', key))
+        dataset = create_dataset(opt)  # create a dataset given opt.dataset_mode and other options
+        
+        for i, data in enumerate(dataset):
+            model.set_input(data)  # unpack data from data loader
+            model.test()           # run inference
+            visuals = model.get_current_visuals()  # get image results
+            # Debug 
+            if True:
+                for label, im_data in visuals.items():
+                    image_numpy = tensor2im(im_data)
+                    # Tensor is in RGB format OpenCV requires BGR
+                    image_numpy = cv2.cvtColor(image_numpy, cv2.COLOR_RGB2BGR)
+                    image_name = '%s_%s.png' % (name, label)
+                    save_path = os.path.join(debug_dir, image_name)                   
+                    imwrite(save_path, image_numpy)
 
-        # Apply adaptiveThreshold at the bitwise_not of gray
-        gray = cv2.bitwise_not(gray)
-        bw = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_MEAN_C, cv2.THRESH_BINARY, 15, -2)
-        # thresh = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)[1]
+            label='prediction'
+            fake_im_data = visuals['fake']
+            image_numpy = tensor2im(fake_im_data)
+            image_numpy = cv2.cvtColor(image_numpy, cv2.COLOR_RGB2BGR)
 
-        # Create the images that will use to extract the horizontal and vertical lines
-        thresh = np.copy(bw)
-        image = src
-        rows = thresh.shape[0]
-        verticalsize = rows // 4
+            return image_numpy
 
-        # kernel = cv2.getStructuringElement(cv2.MORPH_RECT,(1 + niter, 1 + niter))
-        # segmap[sy:ey, sx:ex] = cv2.dilate(segmap[sy:ey, sx:ex], kernel)
+        return None    
+    
+    def __process_smp(self, key:str, snippet, opt, model, config) -> None:
+        """processing via SMP model"""        
 
-        vertical_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (2, 2))
-        detected_lines = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, vertical_kernel, iterations=2)
-        # image = cv2.bitwise_or(bw, detected_lines)
-        # viewImage(image, 'image')
+        def tensor2img(tensor, out_type=np.uint8, min_max=(0, 1)): 
+            ''' 
+            Converts a torch Tensor into an image Numpy array 
+            Input: 4D(B,(3/1),H,W), 3D(C,H,W), or 2D(H,W), any range, RGB channel order 
+            Output: 3D(H,W,C) or 2D(H,W), [0,255], np.uint8 (default) 
+            ''' 
+            tensor = tensor.squeeze().float().cpu().clamp_(*min_max)  # clamp 
+            tensor = (tensor - min_max[0]) / (min_max[1] - min_max[0])  # to range [0,1] 
 
-        cnts = cv2.findContours(detected_lines, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
-        cnts = cnts[0] if len(cnts) == 2 else cnts[1]
-        for c in cnts:
-            cv2.drawContours(image, [c], -1, (255,255,255), 2)
+            return tensor.numpy().astype(out_type)
 
-        # viewImage(image, 'image')
-        # Repair image
-        repair_kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (1,6))
-        result = 255 - cv2.morphologyEx(255 - image, cv2.MORPH_CLOSE, repair_kernel, iterations=1)
-        # viewImage(detected_lines, 'detected_lines')
-        # viewImage(result, 'Snippet')
-        return result
+        def to_tensor(x, **kwargs):
+            return x.transpose(2, 0, 1).astype('float32')
+
+        def get_preprocessing(preprocessing_fn):
+            """Construct preprocessing transform
+            
+            Args:
+                preprocessing_fn (callbale): data normalization function 
+                    (can be specific for each pretrained neural network)
+            Return:
+                transform: albumentations.Compose
+            """
+            
+            _transform = [
+                albu.Lambda(image=preprocessing_fn),
+                albu.Lambda(image=to_tensor),
+            ]
+            return albu.Compose(_transform)
+
+        # load best saved checkpoint
+
+        ENCODER = 'resnet34'
+        ENCODER_WEIGHTS = 'imagenet'
+        DEVICE = 'cpu' #cuda
+
+        # print(f' ********** snippet shape : {snippet.shape}')
+        # create segmentation model with pretrained encoder
+        preprocessing_fn = smp.encoders.get_preprocessing_fn(ENCODER, ENCODER_WEIGHTS)
+        preprocessing = get_preprocessing(preprocessing_fn)
+        sample = preprocessing(image=snippet)
+        image = sample['image']
+
+        # print(f' ********** image shape : {image.shape}')
+        x_tensor = torch.from_numpy(image).to(DEVICE).unsqueeze(0)
+        pr_mask = model.predict(x_tensor)
+        # pr_mask = (pr_mask.squeeze().cpu().numpy().round())
+        pr_mask = tensor2img(pr_mask) # normalized 
+        pr_mask = 255-pr_mask*255 # convert 0...1 range into 0...255 range
+
+        # w = pr_mask.shape[0]
+        # h = pr_mask.shape[1]
+        # debug_img = get_debug_image(h, w, image_src, pr_mask)
+        
+        pr_mask = cv2.cvtColor(pr_mask, cv2.COLOR_RGB2BGR)
+        img_path = '/tmp/segmentaion-mask/pr_mask.png'
+        cv2.imwrite(img_path, pr_mask)
+
+        visualize(
+            image=snippet,
+            predicted=pr_mask
+        )
+
+        return pr_mask
 
     def process(self, id, key, snippet)->None:
         """
@@ -98,10 +175,8 @@ class FieldProcessor:
         opt, model, config = self.__setup(key)
    
         work_dir = ensure_exists(os.path.join(self.work_dir, id, 'fields', key))
-        debug_dir = ensure_exists(os.path.join(self.work_dir, id, 'fields_debug', key))
         
         opt.dataroot = work_dir
-        name = 'segmenation'
 
         # preprocessing
         handlers = {
@@ -124,48 +199,37 @@ class FieldProcessor:
                     raise Exception(f'Handler should return processed image but got None')
                 snippet = ret
 
-        shape_after = snippet.shape
-        print('Shape info *************')
-        print(f'Shape before : {shape_before}')
-        print(f'Shape after : {shape_after}')
+        image_name = '%s.png' % (key)
+        save_path = os.path.join(work_dir, image_name)                   
+        imwrite(save_path, snippet)
 
-        # Debug 
-        if True:
-            image_name = '%s.png' % (key)
-            save_path = os.path.join(work_dir, image_name)                   
-            imwrite(save_path, snippet)
+        # TODO : Add postprocessing
+        cleaned = None
+        arch = config['arch']
+        if arch == 'pix2pix':
+            image_numpy = self.__process_pix2pix(key, snippet, opt, model, config)
+        elif arch == 'smp':
+            image_numpy = self.__process_smp(key, snippet, opt, model, config)
 
-        dataset = create_dataset(opt)  # create a dataset given opt.dataset_mode and other options
-        
-        for i, data in enumerate(dataset):
-            model.set_input(data)  # unpack data from data loader
-            model.test()           # run inference
-            visuals = model.get_current_visuals()  # get image results
-            # Debug 
-            if True:
-                for label, im_data in visuals.items():
-                    image_numpy = tensor2im(im_data)
-                    # Tensor is in RGB format OpenCV requires BGR
-                    image_numpy = cv2.cvtColor(image_numpy, cv2.COLOR_RGB2BGR)
-                    image_name = '%s_%s.png' % (name, label)
-                    save_path = os.path.join(debug_dir, image_name)                   
-                    imwrite(save_path, image_numpy)
+        name = 'segmenation'
+        label = 'real'
+        debug_dir = ensure_exists(os.path.join(self.work_dir, id, 'fields_debug', key))
 
-            label='prediction'
-            fake_im_data = visuals['fake']
-            image_numpy = tensor2im(fake_im_data)
-            # Tensor is in RGB format OpenCV requires BGR
-            image_numpy = cv2.cvtColor(image_numpy, cv2.COLOR_RGB2BGR)
-            image_name = '%s_%s.png' % (name, label)
-            save_path = os.path.join(debug_dir, image_name)
+        # Tensor is in RGB format OpenCV requires BGR
+        # image_numpy = cv2.cvtColor(cleaned, cv2.COLOR_RGB2BGR)
+        image_name = '%s_%s.png' % (name, label)
+        save_path = os.path.join(debug_dir, image_name)
+                       
+        imwrite(save_path, image_numpy)
 
-            # return self.postprocess(image_numpy)
-            return image_numpy
+        return image_numpy
 
     def __setup(self, key):
         """
             Model setup
         """
+        # TODO : Store models in cache so we don't have to reinitialize it
+
         name = self.models[key]
         config_file = os.path.join('./models/segmenter', name, 'config.json')
 
@@ -174,19 +238,42 @@ class FieldProcessor:
 
         with open(config_file) as f:
             data = json.load(f)
-        
+
         args = data['args']
-
-        opt = TestOptions().parse(args)  # get test options
-        # hard-code parameters for test
-        opt.eval = False   # test code only supports num_threads = 0
-        opt.num_threads = 0   
-        opt.batch_size = 1    # test code only supports batch_size = 1
-        opt.serial_batches = True  # disable data shuffling; comment this line if results on randomly chosen images are needed.
-        opt.no_flip = True    # no flip; comment this line if results on flipped images are needed.
-        opt.display_id = -1   # no visdom display; the test code saves the results to a HTML file.
-
-        model = create_model(opt)      # create a model given opt.model and other options
-        model.setup(opt)               # regular setup: load and print networks; create schedulers
+        # arch can be [pix2pix:default, smp]
+        arch = 'pix2pix'
+        if 'arch' in data:
+            arch = data['arch']
+        else:
+            data['arch'] = arch
+        arch = arch.lower()
         
-        return opt, model, data
+        if arch == 'pix2pix':
+            print('Loading PIX2PIX model')
+            opt = TestOptions().parse(args)  # get test options
+            # hard-code parameters for test
+            opt.eval = False   # test code only supports num_threads = 0
+            opt.num_threads = 0   
+            opt.batch_size = 1    # test code only supports batch_size = 1
+            opt.serial_batches = True  # disable data shuffling; comment this line if results on randomly chosen images are needed.
+            opt.no_flip = True    # no flip; comment this line if results on flipped images are needed.
+            opt.display_id = -1   # no visdom display; the test code saves the results to a HTML file.
+            
+            model = create_model(opt)      # create a model given opt.model and other options
+            model.setup(opt)               # regular setup: load and print networks; create schedulers
+            
+            return opt, model, data
+        elif arch == 'smp':
+            print('Loading SMP model')
+            DEVICE = 'cpu' # this will blowup if we use cuda with less than 8GB of mem for 1024x2056
+            opt = Object()
+
+            if 'model' in data:
+                model_path = os.path.join('./models/segmenter', name, data['model'])
+            else:
+                model_path = os.path.join('./models/segmenter', name, 'model.pth')
+
+            model = torch.load(model_path).to(DEVICE)
+            return opt, model, data            
+
+        raise Exception(f'Unknown architecture : {arch}')

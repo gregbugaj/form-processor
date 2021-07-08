@@ -161,28 +161,55 @@ class IcrProcessor:
         self.cuda = cuda
         self.work_dir = work_dir
 
-        opt = Object()
-        opt.Transformation = 'TPS'
-        opt.FeatureExtraction = 'ResNet'
-        opt.SequenceModeling = 'BiLSTM'
-        opt.Prediction = 'Attn'
-        opt.saved_model = './models/icr/TPS-ResNet-BiLSTM-Attn/best_accuracy.pth'
-        opt.sensitive = True
-        opt.imgH = 32
-        opt.imgW = 100        
-        opt.character = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\]^_`{|}~'
-        opt.rgb = False
-        opt.num_fiducial = 20
-        opt.input_channel = 1
-        opt.output_channel = 512
-        opt.hidden_size = 256
-        opt.batch_max_length = 48
-        opt.batch_size = 2 # Fixme: setting batch size to 1 will cause "TypeError: forward() missing 2 required positional arguments: 'input' and 'text'"
-        opt.PAD = True
-        opt.rgb = False
-        opt.workers = 4
-        opt.num_gpu = -1
-        opt.image_folder = './'
+        if True:
+            opt = Object()
+            opt.Transformation = 'TPS'
+            opt.FeatureExtraction = 'ResNet'
+            opt.SequenceModeling = 'BiLSTM'
+            opt.Prediction = 'Attn'
+            opt.saved_model = './models/icr/TPS-ResNet-BiLSTM-Attn-case-sensitive-ft/best_accuracy.pth'
+            opt.sensitive = True
+            opt.imgH = 32
+            opt.imgW = 100        
+            opt.character = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\]^_`{|}~'
+            opt.rgb = False
+            opt.num_fiducial = 20
+            opt.input_channel = 1
+            opt.output_channel = 512
+            opt.hidden_size = 256
+            opt.batch_max_length = 48
+            opt.batch_size = 2 # Fixme: setting batch size to 1 will cause "TypeError: forward() missing 2 required positional arguments: 'input' and 'text'"
+            opt.PAD = True
+            opt.workers = 4
+            opt.num_gpu = -1
+            opt.image_folder = './'
+
+        if False:
+            opt = Object()
+            opt.Transformation = 'TPS'
+            opt.FeatureExtraction = 'ResNet'
+            opt.SequenceModeling = 'BiLSTM'
+            opt.Prediction = 'Attn'
+            opt.saved_model = './models/icr/TPS-ResNet-BiLSTM-Attn/best_accuracy.pth'
+            # opt.saved_model = './models/icr/TPS-ResNet-BiLSTM-Attn-case-sensitive/TPS-ResNet-BiLSTM-Attn-case-sensitive.pth'
+            opt.saved_model = './models/icr/TPS-ResNet-BiLSTM-Attn/TPS-ResNet-BiLSTM-Attn.pth'
+            opt.sensitive = False
+            opt.imgH = 32
+            opt.imgW = 100        
+            opt.character = '0123456789abcdefghijklmnopqrstuvwxyz'
+            # opt.character = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\]^_`{|}~'
+            opt.num_fiducial = 20
+            opt.input_channel = 1
+            opt.output_channel = 512
+            opt.hidden_size = 256
+            opt.batch_max_length = 25
+            opt.batch_size = 2 # Fixme: setting batch size to 1 will cause "TypeError: forward() missing 2 required positional arguments: 'input' and 'text'"
+            opt.PAD = True
+            opt.rgb = False
+            opt.workers = 4
+            opt.num_gpu = -1
+            opt.image_folder = './'
+
 
         self.opt = opt
         self.converter, self.model = self.__load()
