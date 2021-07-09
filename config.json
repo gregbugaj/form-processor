@@ -9,6 +9,17 @@
       },
       "segmenter": "SMP_HCFA24",
       "text_model": "ALPHA_NUMERIC"
+    },
+
+    {
+      "field": "HCFA33_BILLING",
+      "enabled": true,
+      "heuristics": {
+        "enabled": false,
+        "format": []
+      },
+      "segmenter": "SMP_HCFA33_BILLING",
+      "text_model": "ALPHA_NUMERIC"
     }
   ]
 }

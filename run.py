@@ -277,10 +277,14 @@ def main(config_path, img_path, output_dir, work_dir, cuda):
 if __name__ == '__main__':
     args = parse_args()
 
-    args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3101.original.tif' # Causes error 
+    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3101.original.tif' # Causes error 
     args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3103.original.tif'
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3102.original.tif'
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3104.original.tif'
+    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3101.original.tif'
+    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3103.original.tif'
+    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3107.original.tif'
+    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_113174.tif'
     args.work_dir = '/tmp/form-segmentation'
     args.config = './config.json'
 
