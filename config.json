@@ -1,8 +1,82 @@
 {
   "fields": [
+
+    {
+      "field": "HCFA02",
+      "enabled": true,
+      "heuristics": {
+        "enabled": false,
+        "format": []
+      },
+      "margin":"-10,0,0,20",
+      "segmenter": "SMP_HCFA02",
+      "text_model": "ALPHA_NUMERIC"
+    },    
+    
+    {
+      "field": "HCFA05_ADDRESS",
+      "enabled": false,
+      "heuristics": {
+        "enabled": false,
+        "format": []
+      },
+      "margin":"-10,0,0,20",
+      "segmenter": "SMP_HCFA05_ADDRESS",
+      "text_model": "ALPHA_NUMERIC"
+    }, 
+
+    {
+      "field": "HCFA05_PHONE",
+      "enabled": false,
+      "heuristics": {
+        "enabled": false,
+        "format": []
+      },
+      "margin":"-10,0,0,20",
+      "segmenter": "SMP_HCFA05_PHONE",
+      "text_model": "ALPHA_NUMERIC"
+    }, 
+   
+    {
+      "field": "HCFA05_CITY",
+      "enabled": false,
+      "heuristics": {
+        "enabled": false,
+        "format": []
+      },
+      "margin":"-10,0,0,20",
+      "segmenter": "SMP_HCFA_CITY",
+      "text_model": "ALPHA_NUMERIC"
+    }, 
+
+    {
+      "field": "HCFA05_STATE",
+      "enabled": false,
+      "heuristics": {
+        "enabled": false,
+        "format": []
+      },
+      "margin":"0,0,0,0",
+      "segmenter": "SMP_HCFA_STATE",
+      "text_model": "ALPHA_NUMERIC"
+    }, 
+    
+
+    {
+      "field": "HCFA05_ZIP",
+      "enabled": false,
+      "heuristics": {
+        "enabled": false,
+        "format": []
+      },
+      "margin":"-10,0,0,20",
+      "segmenter": "SMP_HCFA_ZIP",
+      "text_model": "ALPHA_NUMERIC"
+    }, 
+    
     {
       "field": "HCFA24",
-      "enabled": true,
+      "enabled": false,
       "heuristics": {
         "enabled": false,
         "format": []
@@ -13,7 +87,7 @@
 
     {
       "field": "HCFA33_BILLING",
-      "enabled": true,
+      "enabled": false,
       "heuristics": {
         "enabled": false,
         "format": []

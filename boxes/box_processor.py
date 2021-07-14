@@ -253,7 +253,7 @@ class BoxProcessor:
         try:
             debug_dir = ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'debug'))
             crops_dir = ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'crop'))
-            output_dir = ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'output'))
+            lines_dir = ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'lines'))
 
             image = copy.deepcopy(image)
             w = 1280 # image.shape[1] # 1280
@@ -279,13 +279,9 @@ class BoxProcessor:
             regions = bboxes
             img_h = image.shape[0]
             img_w = image.shape[1]
-
-            print('Line detection started')
             lines = []
             all_box_lines = []
             
-            print(f'regions : {len(regions)}')
-
             for idx, region in enumerate(regions):
                 region = np.array(region).astype(np.int32).reshape((-1))
                 region = region.reshape(-1, 2)
@@ -296,9 +292,8 @@ class BoxProcessor:
                 box_line = [0, y, img_w, h]
                 box_line = np.array(box_line).astype(np.int32)
                 all_box_lines.append(box_line)
-                print(f' >  {idx} : {box} : {box_line}')
-
-            print(f'all_box_lines : {len(all_box_lines)}')
+                # print(f' >  {idx} : {box} : {box_line}')
+            # print(f'all_box_lines : {len(all_box_lines)}')
             
             all_box_lines = np.array(all_box_lines)
             y1 = all_box_lines[:,1]
@@ -346,8 +341,7 @@ class BoxProcessor:
                 color = list(np.random.random(size=3) * 256) 
                 cv2.rectangle(img_line, (x,y),(x+w,y+h), color, 1)
 
-            mask_file = '/tmp/form-segmentation/candidate-lines.png'
-            cv2.imwrite(mask_file, img_line)
+            cv2.imwrite(os.path.join(lines_dir, "%s-line.png" % (id)), img_line)
 
             # raise Exception('EX')
             # refine lines as there could be lines that overlap
@@ -392,8 +386,7 @@ class BoxProcessor:
                 color = list(np.random.random(size=3) * 256) 
                 cv2.rectangle(img_line, (x,y),(x+w,y+h), color, 1)
 
-            mask_file = '/tmp/form-segmentation/lines.png'
-            cv2.imwrite(mask_file, img_line)
+            cv2.imwrite(os.path.join(lines_dir, "%s-line.png" % (id)), img_line)
             
             line_size = len(lines)
             result_folder = './result/'
@@ -475,16 +468,17 @@ class BoxProcessor:
         image=copy.deepcopy(image)
 
         # perform prediction
+        # This numbers seams to work but need more testing
         bboxes, polys, score_text = get_prediction(
             image=image,
             craft_net=self.craft_net,
             refine_net=self.refine_net,
-            text_threshold=0.7,
-            link_threshold=link_threshold,
-            low_text=0.4,
+            text_threshold=0.4,
+            link_threshold=.1,
+            low_text=0.3,
             cuda=self.cuda,
             poly=True,
-            canvas_size=1280, 
+            canvas_size=1280,
             mag_ratio=1.5
         )
         

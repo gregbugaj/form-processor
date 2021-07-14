@@ -133,11 +133,13 @@ class FieldProcessor:
             return albu.Compose(_transform)
 
         # load best saved checkpoint
-
         ENCODER = 'resnet34'
         ENCODER_WEIGHTS = 'imagenet'
         DEVICE = 'cpu' #cuda
 
+        img_path = '/tmp/segmentaion-mask/pr_mask-snippet.png'
+        cv2.imwrite(img_path, snippet)
+        
         # print(f' ********** snippet shape : {snippet.shape}')
         # create segmentation model with pretrained encoder
         preprocessing_fn = smp.encoders.get_preprocessing_fn(ENCODER, ENCODER_WEIGHTS)
@@ -147,23 +149,23 @@ class FieldProcessor:
 
         # print(f' ********** image shape : {image.shape}')
         x_tensor = torch.from_numpy(image).to(DEVICE).unsqueeze(0)
-        pr_mask = model.predict(x_tensor)
-        # pr_mask = (pr_mask.squeeze().cpu().numpy().round())
-        pr_mask = tensor2img(pr_mask) # normalized 
+        pr_mask = model.predict(x_tensor)        
+        pr_mask = (pr_mask.squeeze().cpu().numpy().round())
+
+        # pr_mask = tensor2img(pr_mask) # normalized 
         pr_mask = 255-pr_mask*255 # convert 0...1 range into 0...255 range
+        img_path = '/tmp/segmentaion-mask/pr_mask-01.png'
+        cv2.imwrite(img_path, pr_mask)
+        pr_mask = np.array(pr_mask).astype(np.uint8)
 
         # w = pr_mask.shape[0]
         # h = pr_mask.shape[1]
         # debug_img = get_debug_image(h, w, image_src, pr_mask)
         
         pr_mask = cv2.cvtColor(pr_mask, cv2.COLOR_RGB2BGR)
-        img_path = '/tmp/segmentaion-mask/pr_mask.png'
+        img_path = '/tmp/segmentaion-mask/pr_mask-02.png'
         cv2.imwrite(img_path, pr_mask)
-
-        visualize(
-            image=snippet,
-            predicted=pr_mask
-        )
+        visualize(image=snippet,predicted=pr_mask)
 
         return pr_mask
 
@@ -173,9 +175,7 @@ class FieldProcessor:
         """
         print("Processing field : {}".format(key))
         opt, model, config = self.__setup(key)
-   
         work_dir = ensure_exists(os.path.join(self.work_dir, id, 'fields', key))
-        
         opt.dataroot = work_dir
 
         # preprocessing
@@ -204,7 +204,6 @@ class FieldProcessor:
         imwrite(save_path, snippet)
 
         # TODO : Add postprocessing
-        cleaned = None
         arch = config['arch']
         if arch == 'pix2pix':
             image_numpy = self.__process_pix2pix(key, snippet, opt, model, config)
@@ -273,7 +272,26 @@ class FieldProcessor:
             else:
                 model_path = os.path.join('./models/segmenter', name, 'model.pth')
 
-            model = torch.load(model_path).to(DEVICE)
+            print(f'Laoding model : {model_path}')
+            if not os.path.exists(model_path):
+                raise Exception(f'File not found : {model_path}')
+
+            # load best saved checkpoint
+            checkpoint = torch.load(model_path)
+            
+            #Model can be saved directly as whole model or with state as {net, acc, epoch}
+            if isinstance(checkpoint, dict):
+                net = checkpoint['net']
+                # model.load_state_dict(net)
+                raise Exception('Not yet implemented')
+            else:
+                model = checkpoint.to(DEVICE)
+            
+            if isinstance(model, torch.nn.DataParallel):
+                model = model.module #This is required as we are wrapping the network in DataParallel if we are using CUDA 
+            
+            # model.eval() 
+
             return opt, model, data            
 
         raise Exception(f'Unknown architecture : {arch}')

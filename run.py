@@ -8,15 +8,12 @@ import json
 import time
 
 from PIL import Image
-from utils.overlap import find_overlap
-from form import processor
-from operator import ne
 
 from form.segmenter import FormSegmeneter
 from boxes.box_processor import BoxProcessor
 from form.numpyencoder import NumpyEncoder
 from form.icr_processor import IcrProcessor
-from form.field_processor import FieldProcessor
+from form.field_processor import FieldProcessor, visualize
 
 from utils.image_utils import paste_fragment
 from utils.utils import current_milli_time, ensure_exists
@@ -144,8 +141,11 @@ class FormProcessor:
         icr_processor = self.icr_processor
 
         seg_fragments, img, segmask = segmenter.segment(id, img_path)
-        overlay_boxes, box_fragment_imgs, overlay_img, _ = box_processor.process_full_extraction(id, img)
-        segmenter.fragment_to_box_snippet(id, seg_fragments, overlay_img)
+
+        # Extract boxes and turn them into boxes
+        # overlay_boxes, box_fragment_imgs, overlay_img, _ = box_processor.process_full_extraction(id, img)
+        # segmenter.fragment_to_box_snippet(id, seg_fragments, overlay_img)
+        overlay_img = img
 
         m1 = current_milli_time()
         log.info('[%s] Segmentation completed in : %s(ms)', id, m1-m0)
@@ -159,7 +159,7 @@ class FormProcessor:
         canvas_img = cv2.addWeighted(canvas_img, alpha, segmask, 1 - alpha, 0)
         canvas_img = cv2.addWeighted(canvas_img, alpha, overlay_img, 1 - alpha, 0)
 
-        if False:
+        if True:
             file_path = os.path.join(debug_dir, "text_over_segmask.png")
             cv2.imwrite(file_path, canvas_img)
 
@@ -171,16 +171,22 @@ class FormProcessor:
         for field_config in fields:
             log.info('[%s] [%s] Start field processing', id, field_config)
             seg_name = field_config['segmenter']
-
-            print(f'******************** ::: {seg_name}')
-
             field = field_config['field']
             heuristics = field_config['heuristics']
-             
+
             if not field_config['enabled']:
                 log.info('[%s] [%s] Field disabled', id, field)
                 continue
+            
+            margin = [0,0,0,0] # L,T,R,B
+            if 'margin' in field_config:
+                m = field_config['margin']
+                m = m.split(',')
+                margin = [int (k) for k in m]
 
+            L,T,R,B = margin 
+            print(f'Margin >> {margin}')
+            
             icr_results = {}
             failed = False
             heuristics_applied = False
@@ -190,6 +196,8 @@ class FormProcessor:
                 fragment = seg_fragments[field]
                 snippet = fragment['snippet']
                 box = fragment['box']
+                
+                # Heuristics is applied to original image rather than image
                 # TODO : Dynamicly call heuristics method rather than hardcode it here
                 if heuristics['enabled']:
                     heuristics_applied, heuristics_snippet = self.apply_heuristics(id, field, box, overlay_img, heuristics)    
@@ -204,7 +212,14 @@ class FormProcessor:
                         log.info('[%s] [%s] Skipping segmenation', id, field)
                     else:
                         m0 = current_milli_time()
-                        snippet = field_processor.process(id, field, snippet)
+                        # apply margin to the box and snippet                
+                        seg_box = [max(0, box[0]+L), box[1], box[2], box[3]+B]
+                        snippet_margin = img[seg_box[1]:seg_box[1]+seg_box[3], seg_box[0]:seg_box[0]+seg_box[2]]
+                        box = seg_box
+
+                        visualize(snippet=snippet, snippet_margin=snippet_margin)
+
+                        snippet = field_processor.process(id, field, snippet_margin)
                         m1 = current_milli_time()
                         log.info('[%s] [%s] Field processor time : %s(ms)', id, field, m1-m0)
 
@@ -285,6 +300,24 @@ if __name__ == '__main__':
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3103.original.tif'
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3107.original.tif'
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_113174.tif'
+    
+    # pred
+    # overlaps
+    args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3100.original.tif'
+    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3100.original.tif'
+    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3110.original.tif' # Low clanup
+    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3116.original.tif' # Low ICR
+    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3121.original.tif' # Low ICR
+    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3126.original.tif' # Good
+    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3133.original.tif' # Good
+    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3135.original.tif' # Good
+    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3155.original.tif' # good
+    args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3157.original.tif' # Low ICR
+    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3162.original.tif' # Form cut
+    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3163.original.tif' # Low OCR
+    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3172.original.tif' # Low OCR
+    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3173.original.tif' #
+
     args.work_dir = '/tmp/form-segmentation'
     args.config = './config.json'
 

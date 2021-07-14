@@ -14,7 +14,7 @@ if __name__ == '__main__':
     work_dir='/tmp/form-segmentation'
     img_path='/home/greg/tmp/hicfa/PID_10_5_0_3101.original.tif'
 
-    if True:
+    if False:
         img_path = '/tmp/form-segmentation/PID_10_5_0_3104.original.tif/fields_debug/HCFA24/segmenation_real.png'
         img_path = '/tmp/form-segmentation/PID_10_5_0_3101.original.tif/fields_debug/HCFA24/segmenation_real.png'
 
@@ -34,11 +34,9 @@ if __name__ == '__main__':
 
     if False:
         img_path='/home/greg/tmp/snippets/009.png'
-        
 
         id = img_path.split('/')[-1]
         debug_dir = ensure_exists(os.path.join(work_dir, id, 'work'))
-
         snippet = cv2.imread(img_path)
 
         fp = FieldProcessor(work_dir)
@@ -77,3 +75,14 @@ if __name__ == '__main__':
                 break
             except Exception as ident:
                 print(ident)
+
+
+    if True:
+
+        img_path='/home/greg/tmp/hicfa/PID_10_5_0_3112.original.tif'
+        img_path='/home/greg/tmp/hicfa/PID_10_5_0_3128.original.tif'
+        work_dir='/tmp/form-segmentation'
+
+        snippet = cv2.imread(img_path)
+        boxer = BoxProcessor(work_dir, cuda=False)
+        boxer.process_full_extraction('id', snippet, .3)
