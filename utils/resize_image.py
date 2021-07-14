@@ -24,7 +24,7 @@ def resize_image(image, desired_size, color=(255, 255, 255)):
         ratio_h = float(desired_size[1])/size[1]
         ratio = min(ratio_w, ratio_h)
         new_size = tuple([int(x*ratio) for x in size])
-        image = cv2.resize(image, (new_size[1], new_size[0]))
+        image = cv2.resize(image, (new_size[1], new_size[0]),interpolation = cv2.INTER_CUBIC)
         size = image.shape
 
     delta_w = max(0, desired_size[1] - size[1])

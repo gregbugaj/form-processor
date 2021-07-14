@@ -34,7 +34,6 @@ import albumentations as albu
 class Object(object):
     pass 
 
-
  # helper function for data visualization
 def visualize(**images):
     """PLot images in one row."""
@@ -55,11 +54,67 @@ def resize_handler(image, args_dict):
         handler for resizing images :
         args example : {'width': 1024, 'height': 256, 'anchor': 'center'}
     """
+
     width = args_dict['width']
     height = args_dict['height']
     anchor = args_dict['anchor']
 
     return resize_image(image, (height, width), color=(255, 255, 255))
+
+
+def resize_long_side_handler(image, args_dict):
+    """
+        handler for resizing images long side first :
+        args example : {'width': 1024, 'height': 256, 'anchor': 'center'}
+    """
+    
+    width = args_dict['width']
+    height = args_dict['height']
+    anchor = args_dict['anchor']
+
+    def get_size(load_size, size):
+        w, h = size
+        new_w = w
+
+        new_w = load_size
+        new_h = load_size * h // w
+
+        return new_w, new_h
+    
+    long_side = width
+    h = height
+    w  = long_side
+
+    size = (image.shape[1], image.shape[0]) # w,h
+    new_size = get_size(long_side, size)
+    image_resized = cv2.resize(image, (new_size[0], new_size[1]), interpolation = cv2.INTER_CUBIC)
+
+    return resize_image(image_resized, (height, width), color=(255, 255, 255))
+
+def make_power_2_handler(image, args_dict):
+    """
+        handler for resizing images based on the power:
+        args example : {'base': 32}
+    """
+    def make_power_2(img, base, method=Image.BICUBIC):
+        ow, oh = img.size
+        h = int(round(oh / base) * base)
+        w = int(round(ow / base) * base)
+        if h == oh and w == ow:
+            return img
+            
+        print("The image size needs to be a multiple of %d. "
+                "The loaded image size was (%d, %d), so it was adjusted to "
+                "(%d, %d)." % (base, ow, oh, w, h))
+        return img.resize((w, h), method)
+
+    base = int(args_dict['base'])
+    pil_snippet = Image.fromarray(image)
+    pil_snippet = make_power_2(pil_snippet, base=base, method=Image.BICUBIC)
+    cv_snip = np.array(pil_snippet)                
+    img = cv2.cvtColor(cv_snip, cv2.COLOR_RGB2BGR)# convert RGB to BGR
+
+    return img
 
 class FieldProcessor:
     
@@ -137,9 +192,6 @@ class FieldProcessor:
         ENCODER_WEIGHTS = 'imagenet'
         DEVICE = 'cpu' #cuda
 
-        img_path = '/tmp/segmentaion-mask/pr_mask-snippet.png'
-        cv2.imwrite(img_path, snippet)
-        
         # print(f' ********** snippet shape : {snippet.shape}')
         # create segmentation model with pretrained encoder
         preprocessing_fn = smp.encoders.get_preprocessing_fn(ENCODER, ENCODER_WEIGHTS)
@@ -154,8 +206,6 @@ class FieldProcessor:
 
         # pr_mask = tensor2img(pr_mask) # normalized 
         pr_mask = 255-pr_mask*255 # convert 0...1 range into 0...255 range
-        img_path = '/tmp/segmentaion-mask/pr_mask-01.png'
-        cv2.imwrite(img_path, pr_mask)
         pr_mask = np.array(pr_mask).astype(np.uint8)
 
         # w = pr_mask.shape[0]
@@ -163,8 +213,6 @@ class FieldProcessor:
         # debug_img = get_debug_image(h, w, image_src, pr_mask)
         
         pr_mask = cv2.cvtColor(pr_mask, cv2.COLOR_RGB2BGR)
-        img_path = '/tmp/segmentaion-mask/pr_mask-02.png'
-        cv2.imwrite(img_path, pr_mask)
         visualize(image=snippet,predicted=pr_mask)
 
         return pr_mask
@@ -180,7 +228,9 @@ class FieldProcessor:
 
         # preprocessing
         handlers = {
-            "resize":resize_handler
+            "resize":resize_handler,
+            "resize_long_side":resize_long_side_handler,
+            "make_power_2":make_power_2_handler
         }
 
         shape_before = snippet.shape

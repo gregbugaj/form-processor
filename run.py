@@ -318,6 +318,13 @@ if __name__ == '__main__':
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3172.original.tif' # Low OCR
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3173.original.tif' #
 
+
+    args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3101.original.tif'
+    args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3104.original.tif'
+    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3107.original.tif'
+    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3103.original.tif'
+    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_113174.tif'
+
     args.work_dir = '/tmp/form-segmentation'
     args.config = './config.json'
 

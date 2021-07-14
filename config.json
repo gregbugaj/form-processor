@@ -2,8 +2,20 @@
   "fields": [
 
     {
+      "field": "HCFA21",
+      "enabled": false,
+      "heuristics": {
+        "enabled": false,
+        "format": []
+      },
+      "margin":"0,0,0,0",
+      "segmenter": "SMP_HCFA21",
+      "text_model": "ALPHA_NUMERIC"
+    },
+    
+    {
       "field": "HCFA02",
-      "enabled": true,
+      "enabled": false,
       "heuristics": {
         "enabled": false,
         "format": []
@@ -76,7 +88,7 @@
     
     {
       "field": "HCFA24",
-      "enabled": false,
+      "enabled": true,
       "heuristics": {
         "enabled": false,
         "format": []
