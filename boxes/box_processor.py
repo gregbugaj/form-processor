@@ -296,6 +296,9 @@ class BoxProcessor:
             # print(f'all_box_lines : {len(all_box_lines)}')
             
             all_box_lines = np.array(all_box_lines)
+            if len(all_box_lines) == 0:
+                return [], [], [], None
+                
             y1 = all_box_lines[:,1]
 
             # sort boxes by the  y-coordinate of the bounding box

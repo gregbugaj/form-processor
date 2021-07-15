@@ -39,7 +39,7 @@
 
     {
       "field": "HCFA05_PHONE",
-      "enabled": false,
+      "enabled": true,
       "heuristics": {
         "enabled": false,
         "format": []
@@ -51,7 +51,7 @@
    
     {
       "field": "HCFA05_CITY",
-      "enabled": true,
+      "enabled": false,
       "heuristics": {
         "enabled": false,
         "format": []
@@ -100,7 +100,7 @@
 
     {
       "field": "HCFA33_BILLING",
-      "enabled": true,
+      "enabled": false,
       "heuristics": {
         "enabled": false,
         "format": []
