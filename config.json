@@ -3,7 +3,7 @@
 
     {
       "field": "HCFA21",
-      "enabled": false,
+      "enabled": true,
       "heuristics": {
         "enabled": false,
         "format": []

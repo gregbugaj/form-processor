@@ -304,23 +304,23 @@ if __name__ == '__main__':
     # pred
     # overlaps
     args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3100.original.tif'
-    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3100.original.tif'
-    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3110.original.tif' # Low clanup
-    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3116.original.tif' # Low ICR
+    args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3100.original.tif'
+    args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3110.original.tif' # Low clanup
+    args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3116.original.tif' # Low ICR
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3121.original.tif' # Low ICR
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3126.original.tif' # Good
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3133.original.tif' # Good
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3135.original.tif' # Good
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3155.original.tif' # good
-    args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3157.original.tif' # Low ICR
+    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3157.original.tif' # Low ICR
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3162.original.tif' # Form cut
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3163.original.tif' # Low OCR
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3172.original.tif' # Low OCR
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3173.original.tif' #
 
 
-    args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3101.original.tif'
-    args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3104.original.tif'
+    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3101.original.tif'
+    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3104.original.tif'
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3107.original.tif'
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3103.original.tif'
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_113174.tif'
