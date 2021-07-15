@@ -3,12 +3,12 @@
 
     {
       "field": "HCFA21",
-      "enabled": true,
+      "enabled": false,
       "heuristics": {
         "enabled": false,
         "format": []
       },
-      "margin":"0,0,0,0",
+      "margin":"-10,-10,10,10",
       "segmenter": "SMP_HCFA21",
       "text_model": "ALPHA_NUMERIC"
     },
@@ -51,7 +51,7 @@
    
     {
       "field": "HCFA05_CITY",
-      "enabled": false,
+      "enabled": true,
       "heuristics": {
         "enabled": false,
         "format": []
@@ -88,22 +88,24 @@
     
     {
       "field": "HCFA24",
-      "enabled": true,
+      "enabled": false,
       "heuristics": {
         "enabled": false,
         "format": []
       },
+      "margin":"0,0,0,0",
       "segmenter": "SMP_HCFA24",
       "text_model": "ALPHA_NUMERIC"
     },
 
     {
       "field": "HCFA33_BILLING",
-      "enabled": false,
+      "enabled": true,
       "heuristics": {
         "enabled": false,
         "format": []
       },
+      "margin":"-10,-5,10,0",
       "segmenter": "SMP_HCFA33_BILLING",
       "text_model": "ALPHA_NUMERIC"
     }
