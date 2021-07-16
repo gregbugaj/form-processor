@@ -1,6 +1,7 @@
 
 import os
 import sys
+from utils.visualize import visualize
 import cv2
 import argparse
 import numpy as np
@@ -13,7 +14,7 @@ from form.segmenter import FormSegmeneter
 from boxes.box_processor import BoxProcessor
 from form.numpyencoder import NumpyEncoder
 from form.icr_processor import IcrProcessor
-from form.field_processor import FieldProcessor, visualize
+from form.field_processor import FieldProcessor
 
 from utils.image_utils import paste_fragment
 from utils.utils import current_milli_time, ensure_exists
@@ -116,7 +117,9 @@ class FormProcessor:
             if ar < 0.05 or ar > 0.30 or lr < 0.30:
                 return False, None
 
-            if False:
+            # TODO: add bottom edge detection
+
+            if True:
                 debug_dir = ensure_exists(os.path.join(work_dir, id, 'heuristics'))
                 savepath = os.path.join(debug_dir, "%s.png" % (key))
                 pil_image.save(savepath, format='PNG', subsampling=0, quality=100)
@@ -217,7 +220,7 @@ class FormProcessor:
                         snippet_margin = img[seg_box[1]:seg_box[1]+seg_box[3], seg_box[0]:seg_box[0]+seg_box[2]]
                         box = seg_box
 
-                        visualize(snippet=snippet, snippet_margin=snippet_margin)
+                        # visualize(snippet=snippet, snippet_margin=snippet_margin)
 
                         snippet = field_processor.process(id, field, snippet_margin)
                         m1 = current_milli_time()
@@ -230,11 +233,15 @@ class FormProcessor:
                 log.info('[%s] [%s] Box processor time : %s(ms)', id, field, m1-m0)
 
                 m0 = current_milli_time()
-                icr_results = icr_processor.icr_extract(id, field, snippet, boxes, fragments, lines)
+                icr_results, icr_overlay = icr_processor.icr_extract(id, field, snippet, boxes, fragments, lines)
+
+                debug_dir = ensure_exists(os.path.join(work_dir, id, 'work_figures'))
+                save_path = os.path.join(debug_dir,  '%s.png' % (field))
+                visualize(imgpath = save_path, snippet=snippet_margin, cleaned=snippet, icr=icr_overlay)
+
                 m1 = current_milli_time()
                 log.info('[%s] [%s] ICR processor time : %s(ms)', id, field, m1-m0)
                 log.info('[%s] [%s] Field eval time : %s(ms)', id, field, m1-s)
-
             except Exception as ident:
                 failed = True
                 print(f'Field failed : {field}')
@@ -308,18 +315,21 @@ if __name__ == '__main__':
     args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3110.original.tif' # Low clanup
     args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3116.original.tif' # Low ICR
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3121.original.tif' # Low ICR
-    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3126.original.tif' # Good
+    args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3126.original.tif' # Good
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3133.original.tif' # Good
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3135.original.tif' # Good
+
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3155.original.tif' # good
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3157.original.tif' # Low ICR
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3162.original.tif' # Form cut
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3163.original.tif' # Low OCR
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3172.original.tif' # Low OCR
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3173.original.tif' #
+    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3154.original.tif'
+    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3162.original.tif'
 
 
-    args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3101.original.tif'
+    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3101.original.tif'
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3104.original.tif'
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3107.original.tif'
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3103.original.tif'
@@ -327,6 +337,7 @@ if __name__ == '__main__':
 
     args.work_dir = '/tmp/form-segmentation'
     args.config = './config.json'
+    args.config = './config-single.json'
 
     img_path = args.img_src
     work_dir = args.work_dir
@@ -335,4 +346,4 @@ if __name__ == '__main__':
     id = img_path.split('/')[-1]
     output_dir = ensure_exists(os.path.join(work_dir, id, 'result'))
 
-    main(config_path=config_path, img_path=img_path, output_dir=output_dir, work_dir=work_dir, cuda=True)
+    main(config_path=config_path, img_path=img_path, output_dir=output_dir, work_dir=work_dir, cuda=False)

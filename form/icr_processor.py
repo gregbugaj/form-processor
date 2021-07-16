@@ -178,7 +178,7 @@ class IcrProcessor:
             opt.output_channel = 512
             opt.hidden_size = 256
             opt.batch_max_length = 48
-            opt.batch_size = 2 # Fixme: setting batch size to 1 will cause "TypeError: forward() missing 2 required positional arguments: 'input' and 'text'"
+            opt.batch_size = 2 # FIXME: setting batch size to 1 will cause "TypeError: forward() missing 2 required positional arguments: 'input' and 'text'"
             opt.PAD = True
             opt.workers = 4
             opt.num_gpu = -1
@@ -449,4 +449,4 @@ class IcrProcessor:
             txt = line['text']
             print(f' >> {txt}')
 
-        return result        
+        return result, overlay_image       

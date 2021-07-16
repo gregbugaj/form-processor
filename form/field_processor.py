@@ -2,17 +2,14 @@
 # Add parent to the search path so we can reference the module here without throwing and exception 
 from logging import Handler, raiseExceptions
 import os, sys
+from utils.visualize import visualize
 
 from numpy.core.fromnumeric import shape
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
 
 import torch
 import cv2
-import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
-from matplotlib import cm
-from matplotlib import colors
-from matplotlib.colors import hsv_to_rgb, rgb_to_hsv
+
 from PIL import Image
 import numpy as np
 import json
@@ -33,21 +30,6 @@ import albumentations as albu
 
 class Object(object):
     pass 
-
- # helper function for data visualization
-def visualize(**images):
-    """PLot images in one row."""
-    n = len(images)
-    plt.figure(figsize=(16, 5))
-    for i, (name, image) in enumerate(images.items()):
-        print(f'shape : {image.shape}')
-        plt.subplot(1, n, i + 1)
-        plt.xticks([])
-        plt.yticks([])
-        plt.title(' '.join(name.split('_')).title())
-        plt.imshow(image)
-    plt.show()
-
 
 def resize_handler(image, args_dict):
     """
@@ -102,7 +84,7 @@ def make_power_2_handler(image, args_dict):
         w = int(round(ow / base) * base)
         if h == oh and w == ow:
             return img
-            
+
         print("The image size needs to be a multiple of %d. "
                 "The loaded image size was (%d, %d), so it was adjusted to "
                 "(%d, %d)." % (base, ow, oh, w, h))
@@ -154,9 +136,12 @@ class FieldProcessor:
 
         return None    
     
-    def __process_smp(self, key:str, snippet, opt, model, config) -> None:
+    def __process_smp(self, key:str, id:str, snippet, opt, model, config) -> None:
         """processing via SMP model"""        
 
+        debug_dir = ensure_exists(os.path.join(self.work_dir, id, 'figures'))
+
+        # There is a bug when we are clamping max value
         def tensor2img(tensor, out_type=np.uint8, min_max=(0, 1)): 
             ''' 
             Converts a torch Tensor into an image Numpy array 
@@ -192,14 +177,12 @@ class FieldProcessor:
         ENCODER_WEIGHTS = 'imagenet'
         DEVICE = 'cpu' #cuda
 
-        # print(f' ********** snippet shape : {snippet.shape}')
         # create segmentation model with pretrained encoder
         preprocessing_fn = smp.encoders.get_preprocessing_fn(ENCODER, ENCODER_WEIGHTS)
         preprocessing = get_preprocessing(preprocessing_fn)
         sample = preprocessing(image=snippet)
         image = sample['image']
 
-        # print(f' ********** image shape : {image.shape}')
         x_tensor = torch.from_numpy(image).to(DEVICE).unsqueeze(0)
         pr_mask = model.predict(x_tensor)        
         pr_mask = (pr_mask.squeeze().cpu().numpy().round())
@@ -207,13 +190,13 @@ class FieldProcessor:
         # pr_mask = tensor2img(pr_mask) # normalized 
         pr_mask = 255-pr_mask*255 # convert 0...1 range into 0...255 range
         pr_mask = np.array(pr_mask).astype(np.uint8)
-
-        # w = pr_mask.shape[0]
         # h = pr_mask.shape[1]
         # debug_img = get_debug_image(h, w, image_src, pr_mask)
         
         pr_mask = cv2.cvtColor(pr_mask, cv2.COLOR_RGB2BGR)
-        visualize(image=snippet,predicted=pr_mask)
+
+        save_path = os.path.join(debug_dir,  '%s.png' % (key))
+        visualize(imgpath = save_path, image=snippet, predicted=pr_mask)
 
         return pr_mask
 
@@ -256,9 +239,9 @@ class FieldProcessor:
         # TODO : Add postprocessing
         arch = config['arch']
         if arch == 'pix2pix':
-            image_numpy = self.__process_pix2pix(key, snippet, opt, model, config)
+            image_numpy = self.__process_pix2pix(key, id, snippet, opt, model, config)
         elif arch == 'smp':
-            image_numpy = self.__process_smp(key, snippet, opt, model, config)
+            image_numpy = self.__process_smp(key, id, snippet, opt, model, config)
 
         name = 'segmenation'
         label = 'real'

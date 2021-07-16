@@ -3,12 +3,12 @@
 
     {
       "field": "HCFA21",
-      "enabled": true,
+      "enabled": false,
       "heuristics": {
         "enabled": false,
         "format": []
       },
-      "margin":"-10,-10,35,10",
+      "margin":"-10,-10,10,10",
       "segmenter": "SMP_HCFA21",
       "text_model": "ALPHA_NUMERIC"
     },
@@ -17,7 +17,7 @@
       "field": "HCFA02",
       "enabled": true,
       "heuristics": {
-        "enabled": true,
+        "enabled": false,
         "format": []
       },
       "margin":"-10,0,0,20",
@@ -27,9 +27,9 @@
     
     {
       "field": "HCFA05_ADDRESS",
-      "enabled": true,
+      "enabled": false,
       "heuristics": {
-        "enabled": true,
+        "enabled": false,
         "format": []
       },
       "margin":"-10,0,0,20",
@@ -39,7 +39,7 @@
 
     {
       "field": "HCFA05_PHONE",
-      "enabled": true,
+      "enabled": false,
       "heuristics": {
         "enabled": false,
         "format": []
@@ -51,9 +51,9 @@
    
     {
       "field": "HCFA05_CITY",
-      "enabled": true,
+      "enabled": false,
       "heuristics": {
-        "enabled": true,
+        "enabled": false,
         "format": []
       },
       "margin":"-10,0,0,20",
@@ -63,9 +63,9 @@
 
     {
       "field": "HCFA05_STATE",
-      "enabled": true,
+      "enabled": false,
       "heuristics": {
-        "enabled": true,
+        "enabled": false,
         "format": []
       },
       "margin":"0,0,0,0",
@@ -75,9 +75,9 @@
     
     {
       "field": "HCFA05_ZIP",
-      "enabled": true,
+      "enabled": false,
       "heuristics": {
-        "enabled": true,
+        "enabled": false,
         "format": []
       },
       "margin":"-10,0,0,20",
@@ -99,7 +99,7 @@
 
     {
       "field": "HCFA33_BILLING",
-      "enabled": true,
+      "enabled": false,
       "heuristics": {
         "enabled": false,
         "format": []

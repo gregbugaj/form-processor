@@ -52,11 +52,12 @@ def make_power_2(img, base, method=Image.BICUBIC):
     w = int(round(ow / base) * base)
     if h == oh and w == ow:
         return img
-         
-    print("The image size needs to be a multiple of 4. "
-              "The loaded image size was (%d, %d), so it was adjusted to "
-              "(%d, %d). This adjustment will be done to all images "
-              "whose sizes are not multiples of 4" % (ow, oh, w, h))
+
+    if False:           
+        print("The image size needs to be a multiple of 4. "
+                "The loaded image size was (%d, %d), so it was adjusted to "
+                "(%d, %d). This adjustment will be done to all images "
+                "whose sizes are not multiples of 4" % (ow, oh, w, h))
 
     return img.resize((w, h), method)
 

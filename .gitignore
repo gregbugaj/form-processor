@@ -1,3 +1,10 @@
+icr/log_validation_result.txt
+models/craft/
+result/
+icr/data_lmdb_release/
+icr/saved_models/
+
+
 # processor
 assets-gen
 assets-private
