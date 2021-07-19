@@ -315,8 +315,9 @@ if __name__ == '__main__':
     args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3110.original.tif' # Low clanup
     args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3116.original.tif' # Low ICR
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3121.original.tif' # Low ICR
-    args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3126.original.tif' # Good
+    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3126.original.tif' # Good
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3133.original.tif' # Good
+    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3135.original.tif' # Good
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3135.original.tif' # Good
 
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3155.original.tif' # good
@@ -337,7 +338,7 @@ if __name__ == '__main__':
 
     args.work_dir = '/tmp/form-segmentation'
     args.config = './config.json'
-    args.config = './config-single.json'
+    # args.config = './config-single.json'
 
     img_path = args.img_src
     work_dir = args.work_dir

@@ -4,6 +4,10 @@ result/
 icr/data_lmdb_release/
 icr/saved_models/
 
+# SMP
+smp/best_model.pth
+smp/checkpoint/
+smp/curve/
 
 # processor
 assets-gen
