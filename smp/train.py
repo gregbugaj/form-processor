@@ -1,4 +1,5 @@
 from __future__ import print_function
+from losses import CustomLoss
 
 import os
 import sys
@@ -22,54 +23,11 @@ import torch.backends.cudnn as cudnn
 from adabound.adabound import AdaBound
 
 # basic constants
-
 ENCODER = 'resnet34'
 ENCODER_WEIGHTS = 'imagenet'
 CLASSES = ['foreground']
 ACTIVATION = 'sigmoid' # could be None for logits or 'softmax2d' for multiclass segmentation
 DEVICE = 'cuda'
-
-ALPHA=.7
-BETA=.3
-GAMMA=2
-
-class FocalTverskyLoss(nn.Module):
-    def __init__(self, weight=None, size_average=True):
-        super(FocalTverskyLoss, self).__init__()
-
-    def forward(self, inputs, targets, smooth=1, alpha=ALPHA, beta=BETA, gamma=GAMMA):
-        
-        # comment out if your model contains a sigmoid or equivalent activation layer
-        # inputs = F.sigmoid(inputs)       
-        
-        #flatten label and prediction tensors
-        inputs = inputs.view(-1)
-        targets = targets.view(-1)
-        
-        #True Positives, False Positives & False Negatives
-        TP = (inputs * targets).sum()    
-        FP = ((1-targets) * inputs).sum()
-        FN = (targets * (1-inputs)).sum()
-        
-        Tversky = (TP + smooth) / (TP + alpha*FP + beta*FN + smooth)  
-        FocalTversky = (1 - Tversky)**gamma
-                       
-        return FocalTversky
-
-class CustomLoss(nn.Module):
-    def __init__(self, weight=None, size_average=True):
-        super(CustomLoss, self).__init__()
-        self.dice_loss = smp.losses.DiceLoss(mode='binary')
-        self.focal_loss = FocalTverskyLoss()
-        self.__name__ = 'custom_loss'
-
-    def forward(self, inputs, targets):
-        dice_loss = self.dice_loss(inputs, targets)
-        focal_loss = self.focal_loss(inputs, targets)
-        criterion = dice_loss + (1 * focal_loss)
-                       
-        return criterion        
-
 
 def get_training_augmentation(pad_size, crop_size):
     """Training augmentation 
@@ -288,7 +246,7 @@ def main():
     args.lr = 1e-4
     args.final_lr = 0.1
     args.gamma = 0.001
-    args.resume = False
+    args.resume = True
 
     # HCFA04
     data_dir = '/home/greg/dev/unet-denoiser/data_HCFA04_finetune/'
