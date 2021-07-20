@@ -7,6 +7,7 @@ from tqdm import tqdm
 import xml.etree.ElementTree as ET
 import random
 import glob
+import json
 
 from resize_image import resize_image
 from split_dir import split_dir
@@ -16,30 +17,7 @@ from split_dir import split_dir
 def rgb(hex):
     h=hex.replace('#','')
     return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
-
-COLOR_1 = rgb('#7fd99d')
-COLOR_2 = rgb('#a96df8')
-COLOR_3 = rgb('#ff614e')
-COLOR_4 = rgb('#016aa4')
-COLOR_5 = rgb('#FFFF00')
-COLOR_6 = rgb('#99624a')
-COLOR_7 = rgb('#a1d743')
-COLOR_8 = rgb('#dc199b')
-COLOR_9 = rgb('#bf6900')
-COLOR_10 = rgb('#510051')
-COLOR_11 = rgb('#464646 ')
-COLOR_12 = rgb('#770B20')
-COLOR_13 = rgb('#DC143C')
-COLOR_14 = rgb('#66669C')
-COLOR_15 = rgb('#BE9999')
-COLOR_16 = rgb('#FAAA1E')
-COLOR_17 = rgb('#DCDC00')
-COLOR_18 = rgb('#6B8E23')
-COLOR_19 = rgb('#4682B4')
-COLOR_20 = rgb('#DC143C')
-COLOR_21 = rgb('#770B20')
-
-
+ 
 def imwrite(path, img):
     try:
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -91,16 +69,17 @@ def augment_image(img, mask, pts, count):
     ])
 
     seq = iaa.Sequential([
-        # sometimes(iaa.SaltAndPepper(0.03, per_channel=False)),
+        sometimes(iaa.SaltAndPepper(0.03, per_channel=False)),
+
         # Blur each image with varying strength using
         # gaussian blur (sigma between 0 and 3.0),
         # average/uniform blur (kernel size between 2x2 and 7x7)
         # median blur (kernel size between 1x1 and 5x5).
-       sometimes(iaa.OneOf([
-            iaa.GaussianBlur((0, 2.0)),
-            iaa.AverageBlur(k=(2, 7)),
-            iaa.MedianBlur(k=(1, 3)),
-        ])),
+    #    sometimes(iaa.OneOf([
+    #         iaa.GaussianBlur((0, 2.0)),
+    #         iaa.AverageBlur(k=(2, 7)),
+    #         iaa.MedianBlur(k=(1, 3)),
+    #     ])),
 
     ], random_order=True)
 
@@ -153,132 +132,31 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file, remap_dir):
         # print()
 
     index = 0 
-
     accepted = dict()
     colormap = dict()
+    config_path  = './mapping.json'
 
-    if True:
-        accepted["HCFA01a"] = True
-        accepted["HCFA02"] = True
-        accepted["HCFA03"] = True
-        accepted["HCFA04"] = True
-        accepted["HCFA06"] = True
-        accepted["HCFA08"] = True
+    if not os.path.exists(config_path):
+        raise Exception(f'config file not found : {config_path}')
 
-        accepted["HCFA05_ADDRESS"] = True
-        accepted["HCFA05_CITY"] = True
-        accepted["HCFA05_ZIP"] = True
-        accepted["HCFA05_PHONE"] = True
-        accepted["HCFA05_STATE"] = True
+    with open(config_path) as f:
+        config = json.load(f)
 
-        accepted["HCFA07_ADDRESS"] = True
-        accepted["HCFA07_CITY"] = True
-        accepted["HCFA07_STATE"] = True
-        accepted["HCFA07_ZIP"] =  True
-        accepted["HCFA07_PHONE"] = True
+    cmap = config['colors']
+    fmap = config['fields']
 
-        # accepted["HCFA21"] = True
-        # accepted["HCFA24"] = True
-        # accepted["HCFA33_BILLING"] = True
+    if len(cmap) != len(fmap):
+        raise Exception(f'Color map and Field map should be of same size')
 
-        colormap["HCFA01a"] = COLOR_1
-        colormap["HCFA02"] = COLOR_2
-        colormap["HCFA03"] = COLOR_3
-        colormap["HCFA04"] = COLOR_4
-        colormap["HCFA06"] = COLOR_5
-        colormap["HCFA08"] = COLOR_16
+    for color, field in zip(cmap, fmap):
+        accepted[field] = True
+        colormap[field] = color
 
-        colormap["HCFA05_ADDRESS"] = COLOR_6
-        colormap["HCFA05_CITY"] = COLOR_7
-        colormap["HCFA05_STATE"] = COLOR_8
-        colormap["HCFA05_ZIP"] =  COLOR_9
-        colormap["HCFA05_PHONE"] = COLOR_10
-
-        colormap["HCFA07_ADDRESS"] = COLOR_11
-        colormap["HCFA07_CITY"] = COLOR_12
-        colormap["HCFA07_STATE"] = COLOR_13
-        colormap["HCFA07_ZIP"] =  COLOR_14
-        colormap["HCFA07_PHONE"] = COLOR_15
-
-    if False:
-        accepted["HCFA33_BILLING"] = True
-        accepted["HCFA33a_NPI"] = True
-        accepted["HCFA33b_NONNPI"] = True
-
-        accepted["HCFA32_SERVICE"] = True
-        accepted["HCFA32a_NPI"] = True
-        accepted["HCFA32b_NONNPI"] = True
-
-        accepted["HCFA31"] = True
-        accepted["HCFA25"] = True
-        accepted["HCFA26"] = True
-        accepted["HCFA27"] = True
-        accepted["HCFA28"] = True
-        accepted["HCFA29"] = True
-        accepted["HCFA30"] = True
-    
-        # accepted["HCFA21"] = True
-        # accepted["HCFA24"] = True
-        print(colormap)
-
-        colormap["HCFA33_BILLING"] = COLOR_1
-        colormap["HCFA33a_NPI"] = COLOR_2
-        colormap["HCFA33b_NONNPI"] = COLOR_3
-
-        ## Only  HCFA32_SERVICE is present
-        colormap["HCFA32_SERVICE"] = COLOR_4
-        colormap["HCFA32a_NPI"] = COLOR_5
-        colormap["HCFA32b_NONNPI"] = COLOR_6
-
-        colormap["HCFA31"] = COLOR_7
-        colormap["HCFA25"] = COLOR_8
-        colormap["HCFA26"] = COLOR_9
-        colormap["HCFA27"] = COLOR_10
-        colormap["HCFA28"] = COLOR_15
-        colormap["HCFA29"] = COLOR_12
-        colormap["HCFA30"] = COLOR_13
-
-
-    if False:
-        accepted["HCFA24"] = True
-        accepted["HCFA23"] = True
-        accepted["HCFA22"] = True
-        accepted["HCFA21"] = True
-        accepted["HCFA20"] = True
-        accepted["HCFA19"] = True
-        accepted["HCFA18"] = True
-        accepted["HCFA17a_"] = True
-        accepted["HCFA17_NAME"] = True
-        accepted["HCFA17a_NONNPI"] = True
-        accepted["HCFA17b_NPI"] = True
-
-        accepted["HCFA14"] = True
-        accepted["HCFA15"] = True
-        accepted["HCFA16"] = True
-
-        # accepted["HCFA21"] = True
-        # accepted["HCFA24"] = True
-        print(colormap)
-
-        colormap["HCFA24"] = COLOR_1
-        colormap["HCFA23"] = COLOR_2
-        colormap["HCFA22"] = COLOR_3
-        colormap["HCFA21"] = COLOR_4
-        colormap["HCFA20"] = COLOR_5
-        colormap["HCFA19"] = COLOR_6
-        colormap["HCFA18"] = COLOR_7
-        colormap["HCFA17a_"] = COLOR_8
-        colormap["HCFA17_NAME"] = COLOR_9
-        colormap["HCFA17a_NONNPI"] = COLOR_10
-        colormap["HCFA17b_NPI"] = COLOR_11
-        colormap["HCFA14"] = COLOR_12
-        colormap["HCFA15"] = COLOR_13
-        colormap["HCFA16"] = COLOR_14
-
-
-    # colormap["HCFA21"] = COLOR_16
-    # colormap["HCFA24"] = COLOR_17
-    # colormap["HCFA33_BILLING"] = COLOR_18
+    # FIXME : Bad mask from labeled data
+    accepted['HCFA17a_NONNPI'] = False
+    accepted['HCFA17b_NPI'] = False
+    accepted['HCFA17a_'] = False
+    # accepted['HCFA17_NAME'] = False
 
     for element in xmlTree.findall("image"):
         name = element.attrib['name']
@@ -293,6 +171,7 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file, remap_dir):
     
         points = []
         colors = []
+        labels = []
 
         print("pol, box = {}, {}".format(len(polygons), len(boxes)))
         if len(boxes) > 0:
@@ -311,29 +190,33 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file, remap_dir):
 
                     print('filename = {} label = {}'.format(filename, label))
                     pts = ['{},{}'.format(xtl, ytl), '{},{}'.format(xtr, ytr), '{},{}'.format(xbr, ybr), '{},{}'.format(xbl, ybl)]
-                    if label not in accepted:
+                    if label not in accepted or accepted[label] == False:
                         continue
+                    
                     points.append(pts)
                     colors.append(colormap[label])
+                    labels.append(label)
+
                     break
         # else:
         for polygon_node in polygons:
             label = polygon_node.attrib['label']
             pts = polygon_node.attrib['points'].split(';')
-            
             size = len(pts)
+
             if strict and size > 0 and size != 4:
                 raise ValueError("Expected 4 point got : %s " %(size))
             if size  == 4:
-                if label not in accepted:
+                if label not in accepted or accepted[label] == False:
                     continue
                 points.append(pts)
                 colors.append(colormap[label])
+                labels.append(label)
         
-        data['ds'].append({'name': filename, 'points': points, 'color':colors, 'mapped': 0 if mappped_images == '' else 1}) 
+        data['ds'].append({'name': filename, 'points': points, 'color':colors, 'mapped': 0 if mappped_images == '' else 1, "labels":labels}) 
 
         for filename in mappped_images.split(',') :
-            data['ds'].append({'name': filename, 'points': points, 'color':colors, 'mapped':0}) 
+            data['ds'].append({'name': filename, 'points': points, 'color':colors, 'mapped':0, "labels":labels}) 
 
         index = index+1
 
@@ -344,8 +227,9 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file, remap_dir):
         filename = row['name']
         points_set = row['points']
         color_set = row['color']
+        label_set = row['labels']
         mapped = row['mapped']
-
+        
         if mapped == 1:
             parts = filename.split('.')
             name = '.'.join(parts[:-1])
@@ -370,6 +254,7 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file, remap_dir):
             
             for points, color_display in zip(points_set, color_set):
                 color_display = color_set[index]
+                label = label_set[index]
                 points = [[float(seg) for seg in pt.split(',')] for pt in points]
                 # Polygon corner points coordinates 
                 pts = np.array(points, np.int32)
@@ -380,10 +265,10 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file, remap_dir):
 
                 overlay_img = cv2.polylines(overlay_img, [pts],  isClosed, color_display, thickness) 
                 overlay_img = cv2.fillPoly(overlay_img, [pts], color_display) # white mask
-
-                # path_dest_mask = os.path.join(dir_dest_mask,  "{}_{}.jpg".format(filename.split('.')[0], index))
-                # imwrite(path_dest_mask, mask_img)
-
+                # 4,1,2
+                org = [pts[3][0][0]+10, pts[3][0][1]-10]
+                txt_label = '{id} : {key}'.format(id=index, key=label)
+                _=cv2.putText(overlay_img, txt_label, org, cv2.FONT_HERSHEY_SIMPLEX, 1.5, (0, 0, 0), 2, cv2.LINE_AA)
                 index=index+1                
             # Following line overlays transparent over the image
             overlay_img = cv2.addWeighted(overlay_img, alpha, img.copy(), 1 - alpha, 0)
@@ -400,7 +285,7 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file, remap_dir):
             imwrite(path_dest_overlay, overlay_img)
 
             # Apply transformations to the image
-            aug_images, aug_masks = augment_image(img, mask_img, pts, 1)
+            aug_images, aug_masks = augment_image(img, mask_img, pts, 15)
 
             assert len(aug_images) == len(aug_masks)
 

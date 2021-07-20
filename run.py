@@ -335,6 +335,10 @@ if __name__ == '__main__':
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3107.original.tif'
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3103.original.tif'
     # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_113174.tif'
+    args.img_src = '/home/greg/Downloads/ConnectiveRx/0PR/001_s2.tif'
+    # args.img_src = '/home/greg/Downloads/ConnectiveRx/0PR/002_s2.tif'
+    # args.img_src = '/home/greg/Downloads/ConnectiveRx/illegible_claim/003.tif'
+    # args.img_src = '/home/greg/Downloads/ConnectiveRx/illegible_claim/003_2.tif'
 
     args.work_dir = '/tmp/form-segmentation'
     args.config = './config.json'
