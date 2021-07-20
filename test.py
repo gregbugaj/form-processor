@@ -1,6 +1,7 @@
 
 import json
 import os
+from utils.utils import current_milli_time
 import cv2
 import argparse
 import numpy as np
@@ -9,11 +10,28 @@ from run import FormProcessor
 from boxes.box_processor import BoxProcessor
 from form.icr_processor import IcrProcessor
 
+from form.segmenter import FormSegmeneter
+
 if __name__ == '__main__':
 
     work_dir='/tmp/form-segmentation'
+    img_path='/home/greg/tmp/hicfa/PID_10_5_0_3100.original.tif'
     img_path='/home/greg/tmp/hicfa/PID_10_5_0_3101.original.tif'
 
+    if True:
+        work_dir='/tmp/segmentation-mask'
+        m0 = current_milli_time()
+        id = img_path.split('/')[-1]
+        segmenter = FormSegmeneter(work_dir)
+        m1 = current_milli_time()-m0
+        
+        print('Form processor initialized in {} ms'.format(m1))
+        m0 = current_milli_time()
+        seg_fragments, img, segmask = segmenter.segment(id, img_path)
+        m1 = current_milli_time()- m0
+        print('Time {} ms'.format(m1))
+
+        
     if False:
         img_path = '/tmp/form-segmentation/PID_10_5_0_3104.original.tif/fields_debug/HCFA24/segmenation_real.png'
         img_path = '/tmp/form-segmentation/PID_10_5_0_3101.original.tif/fields_debug/HCFA24/segmenation_real.png'
@@ -77,7 +95,7 @@ if __name__ == '__main__':
                 print(ident)
 
 
-    if True:
+    if False:
 
         img_path='/home/greg/tmp/hicfa/PID_10_5_0_3112.original.tif'
         img_path='/home/greg/tmp/hicfa/PID_10_5_0_3128.original.tif'

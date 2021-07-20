@@ -11,6 +11,35 @@ import glob
 from resize_image import resize_image
 from split_dir import split_dir
 
+# http://medialab.github.io/iwanthue/
+
+def rgb(hex):
+    h=hex.replace('#','')
+    return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
+
+COLOR_1 = rgb('#7fd99d')
+COLOR_2 = rgb('#a96df8')
+COLOR_3 = rgb('#ff614e')
+COLOR_4 = rgb('#016aa4')
+COLOR_5 = rgb('#FFFF00')
+COLOR_6 = rgb('#99624a')
+COLOR_7 = rgb('#a1d743')
+COLOR_8 = rgb('#dc199b')
+COLOR_9 = rgb('#bf6900')
+COLOR_10 = rgb('#510051')
+COLOR_11 = rgb('#464646 ')
+COLOR_12 = rgb('#770B20')
+COLOR_13 = rgb('#DC143C')
+COLOR_14 = rgb('#66669C')
+COLOR_15 = rgb('#BE9999')
+COLOR_16 = rgb('#FAAA1E')
+COLOR_17 = rgb('#DCDC00')
+COLOR_18 = rgb('#6B8E23')
+COLOR_19 = rgb('#4682B4')
+COLOR_20 = rgb('#DC143C')
+COLOR_21 = rgb('#770B20')
+
+
 def imwrite(path, img):
     try:
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
@@ -43,16 +72,7 @@ def augment_image(img, mask, pts, count):
         result_str = ''.join(random.choice(letters) for i in range(length))
         return result_str
         
-    # # add some text to emulate text writing on document
-    # x1 = pts[0][0][0]
-    # x2 = pts[1][0][0]
-    # y1 = pts[0][0][1]
-    # y2 = pts[-1][0][1]
 
-    # tx1 = get_random_string(12)
-    # font = cv2.FONT_HERSHEY_SIMPLEX
-    
-    # upper = int(random.uniform(0, .4) * 10)
     # for i in range(upper):
     #     cv2.putText(img, tx1, (int((x2-x1) // 3 * (1 + random.uniform(1, 2))) , y1 - y1 // (2 + i)), font, random.uniform(.4, .9), (0, 0, 0),2, cv2.LINE_AA)
     seq_shared = iaa.Sequential([
@@ -68,13 +88,6 @@ def augment_image(img, mask, pts, count):
         )),
 
         sometimes(iaa.Rotate((-1, 1), cval=(255)))
-
-        # iaa.CropAndPad(
-        #     percent=(-0.07, 0.2),
-        #     # pad_mode=ia.ALL,
-        #     pad_mode=["edge"],
-        #     pad_cval=(150, 200)
-        # )
     ])
 
     seq = iaa.Sequential([
@@ -142,36 +155,130 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file, remap_dir):
     index = 0 
 
     accepted = dict()
-    accepted["HCFA02"] = True
-    accepted["HCFA05_ADDRESS"] = True
-    accepted["HCFA05_CITY"] = True
-    accepted["HCFA05_ZIP"] = True
-    accepted["HCFA05_PHONE"] = True
-    accepted["HCFA05_STATE"] = True
-
-    accepted["HCFA21"] = True
-    accepted["HCFA24"] = True
-    accepted["HCFA33_BILLING"] = True
-
-    def rgb(hex):
-        h=hex.replace('#','')
-        return tuple(int(h[i:i+2], 16) for i in (0, 2, 4))
-
-    print(colormap)
     colormap = dict()
-    # http://medialab.github.io/iwanthue/
 
+    if True:
+        accepted["HCFA01a"] = True
+        accepted["HCFA02"] = True
+        accepted["HCFA03"] = True
+        accepted["HCFA04"] = True
+        accepted["HCFA06"] = True
+        accepted["HCFA08"] = True
+
+        accepted["HCFA05_ADDRESS"] = True
+        accepted["HCFA05_CITY"] = True
+        accepted["HCFA05_ZIP"] = True
+        accepted["HCFA05_PHONE"] = True
+        accepted["HCFA05_STATE"] = True
+
+        accepted["HCFA07_ADDRESS"] = True
+        accepted["HCFA07_CITY"] = True
+        accepted["HCFA07_STATE"] = True
+        accepted["HCFA07_ZIP"] =  True
+        accepted["HCFA07_PHONE"] = True
+
+        # accepted["HCFA21"] = True
+        # accepted["HCFA24"] = True
+        # accepted["HCFA33_BILLING"] = True
+
+        colormap["HCFA01a"] = COLOR_1
+        colormap["HCFA02"] = COLOR_2
+        colormap["HCFA03"] = COLOR_3
+        colormap["HCFA04"] = COLOR_4
+        colormap["HCFA06"] = COLOR_5
+        colormap["HCFA08"] = COLOR_16
+
+        colormap["HCFA05_ADDRESS"] = COLOR_6
+        colormap["HCFA05_CITY"] = COLOR_7
+        colormap["HCFA05_STATE"] = COLOR_8
+        colormap["HCFA05_ZIP"] =  COLOR_9
+        colormap["HCFA05_PHONE"] = COLOR_10
+
+        colormap["HCFA07_ADDRESS"] = COLOR_11
+        colormap["HCFA07_CITY"] = COLOR_12
+        colormap["HCFA07_STATE"] = COLOR_13
+        colormap["HCFA07_ZIP"] =  COLOR_14
+        colormap["HCFA07_PHONE"] = COLOR_15
+
+    if False:
+        accepted["HCFA33_BILLING"] = True
+        accepted["HCFA33a_NPI"] = True
+        accepted["HCFA33b_NONNPI"] = True
+
+        accepted["HCFA32_SERVICE"] = True
+        accepted["HCFA32a_NPI"] = True
+        accepted["HCFA32b_NONNPI"] = True
+
+        accepted["HCFA31"] = True
+        accepted["HCFA25"] = True
+        accepted["HCFA26"] = True
+        accepted["HCFA27"] = True
+        accepted["HCFA28"] = True
+        accepted["HCFA29"] = True
+        accepted["HCFA30"] = True
     
-    colormap["HCFA02"] = rgb('#7fd99d')
-    colormap["HCFA05_ADDRESS"] = rgb('#a96df8')
-    colormap["HCFA05_CITY"] = rgb('#ff614e') 
-    colormap["HCFA05_STATE"] =rgb('#016aa4')
-    colormap["HCFA05_ZIP"] =  rgb('#FFFF00')
-    colormap["HCFA05_PHONE"] =rgb('#99624a')
+        # accepted["HCFA21"] = True
+        # accepted["HCFA24"] = True
+        print(colormap)
 
-    colormap["HCFA21"] =rgb('#a1d743')
-    colormap["HCFA24"] =rgb('#dc199b')
-    colormap["HCFA33_BILLING"] =rgb('#bf6900')
+        colormap["HCFA33_BILLING"] = COLOR_1
+        colormap["HCFA33a_NPI"] = COLOR_2
+        colormap["HCFA33b_NONNPI"] = COLOR_3
+
+        ## Only  HCFA32_SERVICE is present
+        colormap["HCFA32_SERVICE"] = COLOR_4
+        colormap["HCFA32a_NPI"] = COLOR_5
+        colormap["HCFA32b_NONNPI"] = COLOR_6
+
+        colormap["HCFA31"] = COLOR_7
+        colormap["HCFA25"] = COLOR_8
+        colormap["HCFA26"] = COLOR_9
+        colormap["HCFA27"] = COLOR_10
+        colormap["HCFA28"] = COLOR_15
+        colormap["HCFA29"] = COLOR_12
+        colormap["HCFA30"] = COLOR_13
+
+
+    if False:
+        accepted["HCFA24"] = True
+        accepted["HCFA23"] = True
+        accepted["HCFA22"] = True
+        accepted["HCFA21"] = True
+        accepted["HCFA20"] = True
+        accepted["HCFA19"] = True
+        accepted["HCFA18"] = True
+        accepted["HCFA17a_"] = True
+        accepted["HCFA17_NAME"] = True
+        accepted["HCFA17a_NONNPI"] = True
+        accepted["HCFA17b_NPI"] = True
+
+        accepted["HCFA14"] = True
+        accepted["HCFA15"] = True
+        accepted["HCFA16"] = True
+
+        # accepted["HCFA21"] = True
+        # accepted["HCFA24"] = True
+        print(colormap)
+
+        colormap["HCFA24"] = COLOR_1
+        colormap["HCFA23"] = COLOR_2
+        colormap["HCFA22"] = COLOR_3
+        colormap["HCFA21"] = COLOR_4
+        colormap["HCFA20"] = COLOR_5
+        colormap["HCFA19"] = COLOR_6
+        colormap["HCFA18"] = COLOR_7
+        colormap["HCFA17a_"] = COLOR_8
+        colormap["HCFA17_NAME"] = COLOR_9
+        colormap["HCFA17a_NONNPI"] = COLOR_10
+        colormap["HCFA17b_NPI"] = COLOR_11
+        colormap["HCFA14"] = COLOR_12
+        colormap["HCFA15"] = COLOR_13
+        colormap["HCFA16"] = COLOR_14
+
+
+    # colormap["HCFA21"] = COLOR_16
+    # colormap["HCFA24"] = COLOR_17
+    # colormap["HCFA33_BILLING"] = COLOR_18
 
     for element in xmlTree.findall("image"):
         name = element.attrib['name']
@@ -293,7 +400,7 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file, remap_dir):
             imwrite(path_dest_overlay, overlay_img)
 
             # Apply transformations to the image
-            aug_images, aug_masks = augment_image(img, mask_img, pts, 10)
+            aug_images, aug_masks = augment_image(img, mask_img, pts, 1)
 
             assert len(aug_images) == len(aug_masks)
 
