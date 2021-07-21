@@ -35,7 +35,7 @@ def check_boundaries(value, tolerance, ranges, upper_or_lower):
 
 def pick_color(event,x,y,flags,param):
     if event == cv2.EVENT_LBUTTONDOWN:
-        pixel_range = image_hsv[y-20:y+20,x-20:x+20]
+        pixel_range = image_hsv[y-5:y+5,x-5:x+5]
         pixel = image_hsv[y,x]
         r = np.mean(pixel_range[0][:,0])
         g = np.mean(pixel_range[0][:,1])
@@ -62,7 +62,9 @@ def pick_color(event,x,y,flags,param):
 
         #A MONOCHROME MASK FOR GETTING A BETTER VISION OVER THE COLORS 
         image_mask = cv2.inRange(image_hsv,lower,upper)
-        cv2.imshow("Mask", image_mask)
+        result = cv2.bitwise_and(image_hsv, image_hsv, mask=image_mask)
+
+        cv2.imshow("Mask", result)
 
 def main():
 
