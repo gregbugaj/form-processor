@@ -18,8 +18,10 @@ if __name__ == '__main__':
     work_dir='/tmp/form-segmentation'
     img_path='/home/greg/tmp/hicfa/PID_10_5_0_3100.original.tif'
     img_path='/home/greg/dataset/data-hipa/forms/hcfa-allstate/269692_202006290005214_001.tif'
+    img_path='/tmp/form-segmentation/269692_202006290005214_001.tif/dataroot/aligned_segment.png'
+    img_path='/home/greg/tmp/aligned_segment_scaled.png'
 
-    if True:
+    if False:
         image = cv2.imread(img_path)
         work_dir='/tmp/segmentation-mask'
         m0 = current_milli_time()
@@ -33,7 +35,7 @@ if __name__ == '__main__':
         m1 = current_milli_time()- m0
         print('Time {} ms'.format(m1))
 
-    if False:
+    if True:
         work_dir='/tmp/segmentation-mask'
         m0 = current_milli_time()
         id = img_path.split('/')[-1]

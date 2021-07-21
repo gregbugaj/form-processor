@@ -1,5 +1,6 @@
 
 import os
+import string
 
 import numpy as np
 import cv2
@@ -8,6 +9,7 @@ import xml.etree.ElementTree as ET
 import random
 import glob
 import json
+from PIL import ImageFont, ImageDraw, Image  
 
 from resize_image import resize_image
 from split_dir import split_dir
@@ -36,6 +38,173 @@ def fourChannels(img):
     return new_img
 
   return img
+
+
+def drawTrueTypeTextOnImage(cv2Image, text, xy, size):
+    """
+    Print True Type fonts using PIL and convert image back into OpenCV
+    """
+    # print(f'text : {xy}, {text}')
+    # Pass the image to PIL  
+    pil_im = Image.fromarray(cv2Image)  
+    draw = ImageDraw.Draw(pil_im)  
+    # use a truetype font  
+    # /usr/share/fonts/truetype/freefont/FreeSerif.ttf"
+    # FreeMono.ttf
+    # FreeSerif.ttf
+    # "FreeSerif.ttf","FreeSerifBold.ttf",
+    # fontFace = np.random.choice([ "FreeMono.ttf", "FreeMonoBold.ttf"]) 
+    # fontPath = os.path.join("/usr/share/fonts/truetype/freefont", fontFace)
+
+    # fontFace = np.random.choice([ "FreeMono.ttf", "FreeMonoBold.ttf", "oldfax.ttf", "FreeMonoBold.ttf", "FreeSans.ttf", "Old_Rubber_Stamp.ttf"]) 
+    fontFace = np.random.choice([ "FreeMono.ttf", "FreeMonoBold.ttf", "FreeMonoBold.ttf", "FreeSans.ttf"]) 
+    fontFace = np.random.choice([ "FreeMono.ttf", "FreeMonoBold.ttf", "FreeSans.ttf", "ColourMePurple.ttf", "Pelkistettyatodellisuutta.ttf" ,"SpotlightTypewriterNC.ttf"]) 
+    fontPath = os.path.join("./assets/fonts/truetype", fontFace)
+    fontPath = os.path.join("/home/greg/dev/unet-denoiser/assets/fonts/truetype", fontFace)
+
+    font = ImageFont.truetype(fontPath, size)
+    size_width, size_height = draw.textsize(text, font)
+
+    # text has to be within the bounds otherwise return same image
+    x = xy[0]
+    y = xy[1]
+    
+    img_h = cv2Image.shape[0]
+    img_w = cv2Image.shape[1]
+
+    adj_y = y + size_height
+    adj_w = x + size_width
+    
+    # print(f'size : {img_h},  {adj_y},  {size_width}, {size_height} : {xy}')
+    if adj_y > img_h or adj_w > img_w:
+        return False, cv2Image, (0, 0)
+
+    draw.text(xy, text, font=font,  fill='#000000')  
+    # Make Numpy/OpenCV-compatible version
+    cv2Image = np.array(pil_im)
+    return True, cv2Image, (size_width, size_height)
+
+def get_word_list():
+    f = open('text.txt', encoding='utf-8', mode="r")
+    text = f.read()
+    f.close()
+    lines_list = str.split(text, '\n')
+    while '' in lines_list:
+        lines_list.remove('')
+
+    lines_word_list = [str.split(line) for line in lines_list]
+    words_list = [words for sublist in lines_word_list for words in sublist]
+
+    return words_list
+
+words_list = get_word_list()
+word_count = 0
+
+def get_text():
+    global word_count, words_list
+    # text to be printed on the blank image
+    num_words = np.random.randint(1, 6)
+    
+    # renew the word list in case we run out of words 
+    if (word_count + num_words) >= len(words_list):
+        print('===\nrecycling the words_list')
+        words_list = get_word_list() 
+        word_count = 0
+
+    print_text = ''
+    for _ in range(num_words):
+        index = np.random.randint(0, len(words_list))
+        print_text += str.split(words_list[index])[0] + ' '
+        #print_text += str.split(words_list[word_count])[0] + ' '
+        word_count += 1
+    print_text = print_text.strip() # to get rif of the last space
+    return print_text
+
+def print_lines(img):
+    def getUpperOrLowerText(txt):
+        if np.random.choice([0, 1], p = [0.5, 0.5]) :
+            return txt.upper()
+        return txt.lower()    
+
+    # get a line of text
+    if np.random.choice([0, 1], p = [0.5, 0.5]) :
+        txt = get_text()
+    else:
+        letters = string.digits 
+        c = np.random.randint(1, 9)
+        txt = (''.join(random.choice(letters) for i in range(c)))
+
+    if np.random.choice([0, 1], p = [0.5, 0.5]):
+        txt = txt.upper()
+
+    # # txt = fake.name()
+    # letters = string.ascii_lowercase 
+    # c = np.random.randint(1, 4)
+    # txt = (''.join(random.choice(letters) for i in range(c)))
+
+    txt = getUpperOrLowerText(txt)
+
+    trueTypeFontSize = np.random.randint(32, 62)
+    valid, img, _ = drawTrueTypeTextOnImage(img, txt, (np.random.randint(0, img.shape[1]), np.random.randint(0, img.shape[0])), trueTypeFontSize)
+    
+    return valid, img
+
+
+def print_lines_aligned(img, boxes):
+    def getUpperOrLowerText(txt):
+        if np.random.choice([0, 1], p = [0.5, 0.5]) :
+            return txt.upper()
+        return txt.lower()    
+
+    print(f'img : {img.shape}')
+    def make_txt():
+        # get a line of text
+        txt = get_text()
+
+        if np.random.choice([0, 1], p = [0.8, 0.2]) :
+            txt = get_text()
+            # txt = fake.name()
+        else:
+            # txt =  get_phone()  #fake.address()
+            letters = string.digits 
+            c = np.random.randint(1, 9)
+            txt = (''.join(random.choice(letters) for i in range(c)))
+        
+        if np.random.choice([0, 1], p = [0.5, 0.5]):
+            txt = txt.upper()
+
+        return getUpperOrLowerText(txt)
+   
+    trueTypeFontSize = np.random.randint(24, 32)
+    xy = (np.random.randint(0, img.shape[1] / 10), np.random.randint(10, img.shape[0] / 20))
+    xy = (np.random.randint(0, 10), np.random.randint(10,  20))
+
+    w = img.shape[1]
+    h = img.shape[0]
+    start_y = xy[1]
+
+    while True:
+        m_h = np.random.randint(90, 120)
+        start_x = xy[0]
+        while True:
+            txt = make_txt()    
+            pos = (start_x, start_y)
+            valid, img, wh = drawTrueTypeTextOnImage(img, txt, pos, trueTypeFontSize)
+            txt_w =  wh[0] + np.random.randint(60, 120)
+            # print(f' {start_x}, {start_y} : {valid}  : {wh}')
+            start_x = start_x + txt_w
+            if wh[1] > m_h:
+                m_h = wh[1]
+            if start_x > w:
+                break
+        start_y = start_y +  np.random.randint(m_h//2, m_h*1.5)
+        if start_y > h:
+            break
+        
+    box = [xy[0], xy[1], wh[0], wh[1]]
+    boxes.append(box)
+
+    return True, img
 
 def augment_image(img, mask, pts, count):
     import random
@@ -83,11 +252,16 @@ def augment_image(img, mask, pts, count):
 
     ], random_order=True)
 
+
     masks = []
     images = [] 
     for i in range(count):
         seq_shared_det = seq_shared.to_deterministic()
-        image_aug = seq(image = img)
+
+        img_= img.copy()
+        valid, img_ = print_lines_aligned(img_, [])
+ 
+        image_aug = seq(image = img_)
         image_aug = seq_shared_det(image = image_aug)
         mask_aug = seq_shared_det(image = mask)
 
@@ -134,7 +308,7 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file, remap_dir):
     index = 0 
     accepted = dict()
     colormap = dict()
-    config_path  = './mapping.json'
+    config_path  = '../mapping.json'
 
     if not os.path.exists(config_path):
         raise Exception(f'config file not found : {config_path}')
@@ -276,16 +450,19 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file, remap_dir):
             mask_img = cv2.resize(mask_img, rsize)
             img = cv2.resize(img, rsize)
 
+            
             path_dest_mask = os.path.join(dir_dest_mask,  "{}.jpg".format(filename.split('.')[0]))
             path_dest_img = os.path.join(dir_dest_image, "{}.jpg".format(filename.split('.')[0]))
             path_dest_overlay = os.path.join(dir_dest_overlay, "{}.png".format(filename.split('.')[0]))
-
+      
             imwrite(path_dest_mask, mask_img)
             imwrite(path_dest_img, img)
             imwrite(path_dest_overlay, overlay_img)
 
             # Apply transformations to the image
-            aug_images, aug_masks = augment_image(img, mask_img, pts, 15)
+            aug_images, aug_masks = augment_image(img, mask_img, pts, 10)
+            # augment original
+            valid, img = print_lines_aligned(img, [])
 
             assert len(aug_images) == len(aug_masks)
 
@@ -374,9 +551,7 @@ if __name__ == '__main__':
     remap_src = os.path.join(root_src, 'remap')
     
     validate_annoations(cvat_annotation_file)
-
-    remap(root_src , dir_dest, cvat_annotation_file, remap_src)
-
+    # remap(root_src , dir_dest, cvat_annotation_file, remap_src)
     cvat_annotation_file=os.path.join(root_src, 'remap.xml') 
 
     create_mask(dir_src, dir_dest, cvat_annotation_file, remap_src)
