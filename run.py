@@ -139,7 +139,7 @@ class FormProcessor:
         id = img_path.split('/')[-1]
         log.info('[%s] Processing image : %s', id, img_path)
         debug_dir = ensure_exists(os.path.join(work_dir, id, 'work'))
-        dataroot_dir = os.path.join(self.work_dir, id, 'dataroot')
+        dataroot_dir = ensure_exists(os.path.join(self.work_dir, id, 'dataroot'))
 
         config = self.config
         form_align = self.form_align
@@ -150,6 +150,7 @@ class FormProcessor:
         
         aligned_segment = form_align.align(id, img_path)
         segment_path = os.path.join(dataroot_dir, 'aligned_segment.png')
+
         cv2.imwrite(segment_path, aligned_segment)
         seg_fragments, img, segmask = segmenter.segment(id, segment_path)
 

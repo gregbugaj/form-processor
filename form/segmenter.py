@@ -382,7 +382,7 @@ class FormSegmeneter:
         imwrite(save_path_overlay, img)
         viewImage(img, 'overlay')
 
-    def segment(self, id: str, img_path:str):
+    def segment(self, id:str, img_path:str):
         """
             Form segmentation 
         """
