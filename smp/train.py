@@ -152,7 +152,7 @@ def build_dataset(data_dir, pad_size, crop_size):
         size=pad_size
     )
 
-    train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True, num_workers=8)
+    train_loader = DataLoader(train_dataset, batch_size=6, shuffle=True, num_workers=8)
     valid_loader = DataLoader(valid_dataset, batch_size=1, shuffle=False, num_workers=4)
 
     # #### Visualize resulted augmented images and masks
@@ -249,9 +249,10 @@ def main():
     args.resume = True
 
     # HCFA04
-    data_dir = '/home/greg/dev/unet-denoiser/data_HCFA04_finetune/'
-    pad_size = (1024, 192)
-    crop_size = (256, 160)
+    data_dir = '/home/greg/dev/assets-private/cvat/TRAINING-ON-DD-GPU/hicfa-mask/cvat-hicfa-mask/output_split/'
+    # pad_size = (1120//2, 1504//2)
+    pad_size = (512, 512) # WxH
+    crop_size = (256, 256)
 
     train_loader, test_loader = build_dataset(data_dir, pad_size, crop_size)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'

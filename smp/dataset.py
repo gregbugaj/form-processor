@@ -138,9 +138,11 @@ class Dataset(BaseDataset):
             image = resize_image(image_resized, (h, w))
             mask = resize_image(maks_resized, (h, w))
         else:
-            image = resize_image(image, (h, w))
-            mask = resize_image(mask, (h, w))
-
+            # image = resize_image(image, (h, w))
+            # mask = resize_image(mask, (h, w))
+            image = cv2.resize(image, (w, h), interpolation = cv2.INTER_AREA)
+            mask = cv2.resize(mask, (w, h), interpolation = cv2.INTER_AREA)
+ 
         # blur = cv2.GaussianBlur(mask,(3,3),0)
         # mask = cv2.threshold(blur, 127, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
 
@@ -195,4 +197,4 @@ class Dataset(BaseDataset):
         return image, mask
 
     def __len__(self):
-        return len(self.ids_a) 
+        return len(self.ids_a)
