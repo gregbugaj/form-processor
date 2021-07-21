@@ -78,8 +78,9 @@ cv.createTrackbar(high_S_name, window_detection_name , high_S, max_value, on_hig
 cv.createTrackbar(low_V_name, window_detection_name , low_V, max_value, on_low_V_thresh_trackbar)
 cv.createTrackbar(high_V_name, window_detection_name , high_V, max_value, on_high_V_thresh_trackbar)
 
-img_path ='./assets/forms-seg/001_fake_green_256.jpg'
+img_path ='/home/greg/dev/pytorch-CycleGAN-and-pix2pix/results/hicfa_pix2pix/test_latest/images/0_A_fake.png'
 frame = cv.imread(img_path)
+frame = cv.resize(frame, (frame.shape[1]//2, frame.shape[0]//2), interpolation = cv.INTER_LINEAR)
 
 # cv.imshow(window_capture_name, frame)
 while True:

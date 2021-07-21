@@ -1,10 +1,6 @@
 
 # Add parent to the search path so we can reference the module here without throwing and exception 
-from logging import Handler, raiseExceptions
 import os, sys
-from utils.visualize import visualize
-
-from numpy.core.fromnumeric import shape
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
 
 import torch
@@ -24,9 +20,12 @@ from utils.utils import current_milli_time, ensure_exists
 from utils.image_utils import imwrite
 
 from utils.resize_image import resize_image
+from utils.visualize import visualize
 
 import segmentation_models_pytorch as smp
 import albumentations as albu
+
+from logging import Handler, raiseExceptions
 
 class Object(object):
     pass 

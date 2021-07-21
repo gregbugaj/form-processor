@@ -24,6 +24,8 @@ from pix2pix.util.visualizer import save_images
 from pix2pix.util.util import tensor2im
 
 # Don't change the order here as the field dictionary depends on it
+# (hMin = 175 , sMin = 132, vMin = 21), (hMax = 178 , sMax = 158, vMax = 255)
+
 hsv_color_ranges = [
             [[55, 58, 0], [86, 255, 255]],      # GREEN DARK  7fd99d
             [[123, 99, 206], [140, 255, 255]],  # Purple      a96df8

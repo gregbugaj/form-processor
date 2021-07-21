@@ -1,4 +1,5 @@
 
+from form.form_alignment import FormAlignment
 import os
 import sys
 from utils.visualize import visualize
@@ -55,6 +56,8 @@ class FormProcessor:
             segmenter_models[field_config['field']] = field_config['segmenter']
 
         m0 = current_milli_time()
+
+        self.form_align = FormAlignment(work_dir)
         self.segmenter = FormSegmeneter(work_dir)
         self.field_processor = FieldProcessor(work_dir, segmenter_models)
         self.box_processor = BoxProcessor(work_dir, cuda=self.cuda)
@@ -136,14 +139,19 @@ class FormProcessor:
         id = img_path.split('/')[-1]
         log.info('[%s] Processing image : %s', id, img_path)
         debug_dir = ensure_exists(os.path.join(work_dir, id, 'work'))
+        dataroot_dir = os.path.join(self.work_dir, id, 'dataroot')
 
         config = self.config
+        form_align = self.form_align
         segmenter = self.segmenter
         field_processor = self.field_processor
         box_processor = self.box_processor
         icr_processor = self.icr_processor
-
-        seg_fragments, img, segmask = segmenter.segment(id, img_path)
+        
+        aligned_segment = form_align.align(id, img_path)
+        segment_path = os.path.join(dataroot_dir, 'aligned_segment.png')
+        cv2.imwrite(segment_path, aligned_segment)
+        seg_fragments, img, segmask = segmenter.segment(id, segment_path)
 
         # Extract boxes and turn them into boxes
         # overlay_boxes, box_fragment_imgs, overlay_img, _ = box_processor.process_full_extraction(id, img)
@@ -276,11 +284,11 @@ def parse_args():
 
 def main(config_path, img_path, output_dir, work_dir, cuda):
     print('Main')
-    print(f'cuda       = {cuda}')
-    print(f'config_path   = {config_path}')
-    print(f'img_path   = {img_path}')
-    print(f'output_dir = {output_dir}')
-    print(f'work_dir   = {work_dir}')
+    print(f'cuda        = {cuda}')
+    print(f'config_path = {config_path}')
+    print(f'img_path    = {img_path}')
+    print(f'output_dir  = {output_dir}')
+    print(f'work_dir    = {work_dir}')
 
     if not os.path.exists(config_path):
         raise Exception(f'config file not found : {config_path}')
@@ -299,44 +307,7 @@ def main(config_path, img_path, output_dir, work_dir, cuda):
 if __name__ == '__main__':
     args = parse_args()
 
-    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3101.original.tif' # Causes error 
-    args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3103.original.tif'
-    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3102.original.tif'
-    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3104.original.tif'
-    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3101.original.tif'
-    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3103.original.tif'
-    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3107.original.tif'
-    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_113174.tif'
-    
-    # pred
-    # overlaps
-    args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3100.original.tif'
-    args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3100.original.tif'
-    args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3110.original.tif' # Low clanup
-    args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3116.original.tif' # Low ICR
-    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3121.original.tif' # Low ICR
-    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3126.original.tif' # Good
-    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3133.original.tif' # Good
-    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3135.original.tif' # Good
-    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3135.original.tif' # Good
-
-    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3155.original.tif' # good
-    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3157.original.tif' # Low ICR
-    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3162.original.tif' # Form cut
-    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3163.original.tif' # Low OCR
-    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3172.original.tif' # Low OCR
-    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3173.original.tif' #
-    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3154.original.tif'
-    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3162.original.tif'
-
-
-    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3101.original.tif'
-    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3104.original.tif'
-    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3107.original.tif'
-    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_3103.original.tif'
-    # args.img_src = '/home/greg/tmp/hicfa/PID_10_5_0_113174.tif'
-    args.img_src = '/tmp/segmentation-mask/segment.png'
-
+    args.img_src = '/home/greg/dataset/data-hipa/forms/hcfa-allstate/269692_202006290005214_001.tif'
     args.work_dir = '/tmp/form-segmentation'
     args.config = './config.json'
     # args.config = './config-single.json'
