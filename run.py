@@ -307,8 +307,7 @@ def main(config_path, img_path, output_dir, work_dir, cuda):
 
 if __name__ == '__main__':
     args = parse_args()
-
-    args.img_src = '/home/greg/dataset/data-hipa/forms/hcfa-allstate/269692_202006290005214_001.tif'
+    args.img_src = '/media/greg/XENSERVER-6/27ofStateFarm100/272943_0031516168746_001.tif'
     args.work_dir = '/tmp/form-segmentation'
     args.config = './config.json'
     # args.config = './config-single.json'
@@ -319,5 +318,4 @@ if __name__ == '__main__':
 
     id = img_path.split('/')[-1]
     output_dir = ensure_exists(os.path.join(work_dir, id, 'result'))
-
     main(config_path=config_path, img_path=img_path, output_dir=output_dir, work_dir=work_dir, cuda=False)

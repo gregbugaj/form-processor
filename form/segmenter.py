@@ -26,7 +26,7 @@ from pix2pix.util.util import tensor2im
 # Don't change the order here as the field dictionary depends on it
 # (hMin = 175 , sMin = 132, vMin = 21), (hMax = 178 , sMax = 158, vMax = 255)
 
-hsv_color_ranges = [
+hsv_color_ranges_XXXX= [
             [[55, 58, 0], [86, 255, 255]],      # GREEN DARK  7fd99d
             [[123, 99, 206], [140, 255, 255]],  # Purple      a96df8
             [[0, 152, 240], [9, 255, 255]],     # Red         ff614e
@@ -44,13 +44,34 @@ def viewImage(image, name='Display'):
     cv2.waitKey(0)
     cv2.destroyAllWindows()
   
+def unsharp_mask(image, kernel_size=(5, 5), sigma=1.0, amount=1.0, threshold=0):
+    """Return a sharpened version of the image, using an unsharp mask."""
+    blurred = cv2.GaussianBlur(image, kernel_size, sigma)
+    sharpened = float(amount + 1) * image - float(amount) * blurred
+    sharpened = np.maximum(sharpened, np.zeros(sharpened.shape))
+    sharpened = np.minimum(sharpened, 255 * np.ones(sharpened.shape))
+    sharpened = sharpened.round().astype(np.uint8)
+    if threshold > 0:
+        low_contrast_mask = np.absolute(image - blurred) < threshold
+        np.copyto(sharpened, image, where=low_contrast_mask)
+    return sharpened
+
 def apply_filter(src_img):
     img = src_img.copy()
-    blur = cv2.blur(img,(5,5))
-    blur0= cv2.medianBlur(blur,5)
-    blur1= cv2.GaussianBlur(blur0,(5,5),0)
-    blur2= cv2.bilateralFilter(blur1,9,75,75)
-    return blur2
+    # blur = cv2.blur(img,(5,5))
+    # blur0= cv2.medianBlur(blur,5)
+    # blur1= cv2.GaussianBlur(blur0,(5,5),0)
+    # blur2= cv2.bilateralFilter(blur1,9,75,75)
+
+    # kernel = np.array([[-1,-1,-1], [-1,9,-1], [-1,-1,-1]])
+    # im = cv2.filter2D(blur2, -1, kernel)
+    # im2 = cv2.filter2D(src_img, -1, kernel)
+
+    # sharpened_image = unsharp_mask(blur2)
+    # sharpened_image2 = unsharp_mask(src_img)
+    # blurX= cv2.GaussianBlur(sharpened_image2,(5,5),0)
+
+    return unsharp_mask(img, kernel_size=(5, 5), sigma=1.0, amount=0, threshold=0)
 
 def rgb_2_hsv(r,g,b):
     ## getting green HSV color representation
@@ -216,14 +237,14 @@ class FormSegmeneter:
             # return image_numpy
             return resized_mask
 
-    def __fragment(self, img, hsv, layerId, fieldId):
+    def __fragment(self, img, hsv, fieldId, hsv_color_ranges):
         """
             Segment fragment 
         """
-        print('layerId / id {} : {}'.format(layerId, fieldId))
+        print('segmenting fieldid : {}'.format(fieldId))
         colid = fieldId
-        low_color = np.array(hsv_color_ranges[colid][0],np.uint8)
-        high_color = np.array(hsv_color_ranges[colid][1],np.uint8)
+        low_color = np.array(hsv_color_ranges[0],np.uint8)
+        high_color = np.array(hsv_color_ranges[1],np.uint8)
         mask = cv2.inRange(hsv, low_color, high_color)
         # viewImage(mask, 'mask')
 
@@ -231,9 +252,15 @@ class FormSegmeneter:
         # result_white = cv2.bitwise_and(img, img, mask=mask)
         # viewImage(result_white, 'result_white') 
 
-        #  find Canny Edges
-        edged = cv2.Canny(mask, 30, 200)
-        
+        # Apply erosion and dilation to get rid off small artifacts 
+        kernel = np.ones((5,5), np.uint8)
+        img_erosion = cv2.erode(mask, kernel, iterations=2)
+        img_dilation = cv2.dilate(img_erosion, kernel, iterations=1)
+        mask = img_dilation
+
+        cv2.imwrite('/tmp/fragments/img_erosion_%s.png'%(fieldId), img_erosion)
+        cv2.imwrite('/tmp/fragments/img_dilation_%s.png'%(fieldId), img_dilation)
+
         # Use Blur
         # blur = cv2.GaussianBlur(edged, (3, 3), 0)
         blur = cv2.GaussianBlur(mask, (3, 3), 0)
@@ -246,6 +273,7 @@ class FormSegmeneter:
         fragments_dir='/tmp/fragments'
         tm = time.time_ns()
         output_filename='threshold_%s.png' % (tm)
+        output_filename='threshold_%s.png' %(fieldId)
         imwrite(os.path.join(fragments_dir, output_filename), blur)
 
         contours, hierarchy =  cv2.findContours(blur,cv2.RETR_TREE,cv2.CHAIN_APPROX_SIMPLE)
@@ -258,41 +286,54 @@ class FormSegmeneter:
         all_pts = []
         drift = 5
 
-        for cnt in contours:
+        for c in contours:
+            # approximate the contour
+            peri = cv2.arcLength(c, True)
+            approx = cv2.approxPolyDP(c, 0.01 * peri, True)
+
             # (center(x, y), (width, height), angle of rotation)
-            (x, y), (width, height), angle = rect = cv2.minAreaRect(cnt)
+            (x, y), (width, height), angle = rect = cv2.minAreaRect(approx) # we could use the 'contour' here as well
             # 90.0 deg https://theailearner.com/tag/cv2-minarearect/
             aspect_ratio = min(width, height) / max(width, height)
             # if angle < 90 - drift or angle > 90 + drift:
             #     continue
             # convert
-            box = cv2.boxPoints(rect)
-            box = np.int0(box)
+            box_points = cv2.boxPoints(rect)
+            box_points = np.int0(box_points)
             # Calculate the moments and get area
             # Trying to filter out small pieces
-            M = cv2.moments(cnt)
+            M = cv2.moments(c)
             area = M['m00']
-            if area > 50:
-                x,y,w,h = cv2.boundingRect(cnt)
+
+            area = cv2.contourArea(c)
+            hull_area = cv2.contourArea(cv2.convexHull(c))
+            solidity = area / float(hull_area)
+
+            # print('------------')
+            # print(f'area, solidity, aspect_ratio : {area}, {solidity}, {aspect_ratio}')
+            # print(box_points)
+
+            if area > 500:
+                x,y,w,h = cv2.boundingRect(c)
                 bb = [x ,y, w, h]
 
-                if False:
+                if True:
                     cv2.rectangle(img,(x,y),(x+w,y+h),(0,255,0),2)
                     try:
-                        cv2.drawContours(img, [box], -1, (255, 0, 0), 2, 1)
-                        org = [box[3][0]+5, box[3][1]-5]
+                        #cv2.drawContours(img, [box_points], -1, (255, 0, 0), 2, 1)
+                        org = [box_points[3][0]+5, box_points[3][1]-5]
                         label = 'id : {id}'.format(id=colid)
                         _=cv2.putText(img, label, org, font, .4, (0, 0, 0), 1, cv2.LINE_AA)
                     except Exception as e:
                         print(e)
 
                 all_boxes.append(bb)
-                all_pts.append(box)
+                all_pts.append(box_points)
                 cls_scores.append(area)
 
         # important that we apply non-max suppression to the candiates
         if len(all_boxes) == 0:
-            print('Unable to extract layerId / id {} : {}'.format(layerId, fieldId))
+            print('Unable to extract id # {}'.format(fieldId))
             return None, None
 
         # Testing NMS
@@ -303,7 +344,7 @@ class FormSegmeneter:
         
         keep = nms(all_boxes, 0.3)
         idx = keep[0]
-        box = all_pts[idx]
+        box_points = all_pts[idx]
         non_scored_box = all_boxes[idx][:4].astype('int32')  
 
         # print('keep    : {}'.format(non_scored_box))
@@ -311,17 +352,18 @@ class FormSegmeneter:
 
         if False:
             try:
-                cv2.drawContours(img, [box], -1, (255, 0, 0), 2, 1)
-                org = [box[3][0]+5, box[3][1]-5]
+                cv2.drawContours(img, [box_points], -1, (255, 0, 0), 2, 1)
+                org = [box_points[3][0]+5, box_points[3][1]-5]
                 label = 'id : {id}'.format(id=colid)
                 _=cv2.putText(img, label, org, font, .4, (0, 0, 0), 1, cv2.LINE_AA)
 
             except Exception as e:
                 print(e)
-            viewImage(img, 'Final Fragment')
+        
+        viewImage(img, 'Final Fragment')
         # viewImage(img, 'Final Fragment')
         non_scored_box = all_boxes[idx][:4].astype('int32')  
-        return box, non_scored_box
+        return box_points, non_scored_box
 
     def merge_boxes_with_segmask(self, id, seg_fragments, rectangles, box_fragment_imgs, overlay_img):
         """
@@ -426,68 +468,63 @@ class FormSegmeneter:
         # hsv = cv2.cvtColor(img, cv2.COLOR_BGR2HSV)
         # viewImage(hsv, 'HSV') 
 
-        layers = {
-            'layer_1' : {
-                'HCFA02': 0, 
-                'HCFA05_ADDRESS': 1, 
-                'HCFA05_CITY': 2,
-                'HCFA05_STATE': 3,
-                'HCFA05_ZIP': 4,
-                'HCFA05_PHONE': 5,
-                'HCFA21': 6,
-                'HCFA24': 7,
-                'HCFA33_BILLING': 8,
-            },
-        }
+        config_path  = './mapping.json'
+        if not os.path.exists(config_path):
+            raise Exception(f'config file not found : {config_path}')
 
+        with open(config_path) as f:
+            config = json.load(f)
+
+        cmap = config['colors']
+        fmap = config['fields']
+        hsvmap = config['field_hsv_ranges']
         fragments = dict()
-        for lkey in layers.keys():
-            print('Processing layer : {}'.format(lkey))
-            layer = layers[lkey]
-            for key in layer.keys():
-                val = layer[key]
-                box_rect, box = self.__fragment(segmask, hsv, lkey, val)     
-                # it is possible to get bad segmask
-                if box is None:
-                    continue
-                snippet = img[box[1]:box[1]+box[3], box[0]:box[0]+box[2]]
-                
-                pil_snippet = Image.fromarray(snippet)
-                
-                pil_snippet = make_power_2(pil_snippet, base=4, method=Image.BICUBIC)
-                cv_snip = np.array(pil_snippet)                
-                snippet = cv2.cvtColor(cv_snip, cv2.COLOR_RGB2BGR)# convert RGB to BGR
-                
-                # expand the snippet to be framed in NxN border
-                # try 8 px on each side
-                shape = snippet.shape
 
-                pad = 0
-                pil_padded = Image.new('RGB', (shape[1] + pad, shape[0] + pad), color=(255,255,255,0))
-                paste_fragment(pil_padded, snippet, (pad//2, pad//2))
+        for fob in hsvmap:
+            print('Processing  : {}'.format(fob))
+            lkey = 1
+            key = fob['id']
+            val = key
+            hsv_color_ranges = fob['range']
+            box_rect, box = self.__fragment(segmask, hsv, key, hsv_color_ranges)     
 
-                savepath = os.path.join(debug_dir, "%s-%s.jpg" % ('padded_snippet' , key))
-                pil_padded.save(savepath, format='JPEG', subsampling=0, quality=100)
+            # it is possible to get bad segmask
+            if box is None:
+                continue
+            snippet = img[box[1]:box[1]+box[3], box[0]:box[0]+box[2]]
+            
+            pil_snippet = Image.fromarray(snippet)
+            pil_snippet = make_power_2(pil_snippet, base=4, method=Image.BICUBIC)
+            cv_snip = np.array(pil_snippet)                
+            snippet = cv2.cvtColor(cv_snip, cv2.COLOR_RGB2BGR)# convert RGB to BGR
+            shape = snippet.shape[:2]
 
-                cv_snip = np.array(pil_padded)                
-                snippet = cv2.cvtColor(cv_snip, cv2.COLOR_RGB2BGR)# convert RGB to BGR
+            pad = 0
+            pil_padded = Image.new('RGB', (shape[1] + pad, shape[0] + pad), color=(255,255,255,0))
+            paste_fragment(pil_padded, snippet, (pad//2, pad//2))
 
-                frag = {
-                    'layer':lkey,
-                    'key':key,
-                    'id':val,
-                    'box': box,
-                    'snippet':snippet
-                }
-                
-                fragments[key] = frag
-                try:
-                    cv2.drawContours(segmask, [box_rect], -1, (255, 0, 0), 2, 1)
-                    org = [box_rect[3][0]+5, box_rect[3][1]-5]
-                    label = '{label} ({id})'.format(id=val, label=key)
-                    _=cv2.putText(segmask, label, org, font, .4, (0, 0, 0), 1, cv2.LINE_AA)
-                except Exception as e:
-                    print(e)
+            savepath = os.path.join(debug_dir, "%s-%s.jpg" % ('padded_snippet' , key))
+            pil_padded.save(savepath, format='JPEG', subsampling=0, quality=100)
+
+            cv_snip = np.array(pil_padded)                
+            snippet = cv2.cvtColor(cv_snip, cv2.COLOR_RGB2BGR)# convert RGB to BGR
+
+            frag = {
+                'layer':lkey,
+                'key':key,
+                'id':val,
+                'box': box,
+                'snippet':snippet
+            }
+            
+            fragments[key] = frag
+            try:
+                cv2.drawContours(segmask, [box_rect], -1, (255, 0, 0), 2, 1)
+                org = [box_rect[3][0]+5, box_rect[3][1]-5]
+                label = '{label} ({id})'.format(id=val, label=key)
+                _=cv2.putText(segmask, label, org, font, .4, (0, 0, 0), 1, cv2.LINE_AA)
+            except Exception as e:
+                print(e)
 
         # viewImage(segmask, 'final')
         shape = img.shape
@@ -507,7 +544,7 @@ class FormSegmeneter:
             paste_fragment(overlay, snippet, (box[0], box[1]))
 
             tm = time.time_ns()
-            output_filename='%s-%d-%s.png' % (key, _id, tm)
+            output_filename='%s-%s-%s.png' % (key, _id, tm)
             imwrite(os.path.join(fragments_dir, output_filename), snippet)
 
         savepath = os.path.join(debug_dir, "%s-%s.jpg" % ('fragment_overlay' , tm))

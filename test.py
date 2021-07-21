@@ -20,6 +20,8 @@ if __name__ == '__main__':
     img_path='/home/greg/dataset/data-hipa/forms/hcfa-allstate/269692_202006290005214_001.tif'
     img_path='/tmp/form-segmentation/269692_202006290005214_001.tif/dataroot/aligned_segment.png'
     img_path='/home/greg/tmp/aligned_segment_scaled.png'
+    img_path='/media/greg/XENSERVER-6/27ofStateFarm100/272943_0031516168746_001.tif'
+    img_path='/tmp/form-segmentation/aligned_segment.png'
 
     if False:
         image = cv2.imread(img_path)

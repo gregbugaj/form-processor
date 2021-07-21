@@ -35,8 +35,17 @@ def check_boundaries(value, tolerance, ranges, upper_or_lower):
 
 def pick_color(event,x,y,flags,param):
     if event == cv2.EVENT_LBUTTONDOWN:
+        pixel_range = image_hsv[y-20:y+20,x-20:x+20]
         pixel = image_hsv[y,x]
-
+        r = np.mean(pixel_range[0][:,0])
+        g = np.mean(pixel_range[0][:,1])
+        b = np.mean(pixel_range[0][:,2])
+        pixel2 = [r,g,b]
+        print('-----------')
+        print(pixel)
+        print(pixel2)
+        pixel = pixel2
+        
         #HUE, SATURATION, AND VALUE (BRIGHTNESS) RANGES. TOLERANCE COULD BE ADJUSTED.
         # Set range = 0 for hue and range = 1 for saturation and brightness
         # set upper_or_lower = 1 for upper and upper_or_lower = 0 for lower
@@ -65,6 +74,7 @@ def main():
     file_path = filedialog.askopenfilename(filetypes = ftypes)
     root.update()
     image_src = cv2.imread(file_path)
+    image_src = cv2.resize(image_src, (1024,1024))
     cv2.imshow("BGR",image_src)
 
     #CREATE THE HSV FROM THE BGR IMAGE
