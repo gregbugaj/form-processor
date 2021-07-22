@@ -359,8 +359,8 @@ class FormSegmeneter:
 
             except Exception as e:
                 print(e)
-        
-        viewImage(img, 'Final Fragment')
+            viewImage(img, 'Final Fragment')
+
         # viewImage(img, 'Final Fragment')
         non_scored_box = all_boxes[idx][:4].astype('int32')  
         return box_points, non_scored_box

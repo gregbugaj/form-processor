@@ -20,7 +20,7 @@
         "enabled": false,
         "format": []
       },
-      "margin":"-10,0,0,20",
+      "margin":"-30,0,0,20",
       "segmenter": "SMP_HCFA02",
       "text_model": "ALPHA_NUMERIC"
     },    
@@ -87,7 +87,7 @@
     
     {
       "field": "HCFA24",
-      "enabled": true,
+      "enabled": false,
       "heuristics": {
         "enabled": false,
         "format": []

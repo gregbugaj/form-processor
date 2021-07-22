@@ -382,7 +382,7 @@ class IcrProcessor:
             if line > max_line_number:
                 max_line_number = line
 
-            overlay_image = drawTrueTypeTextOnImage(overlay_image, txt_label, (box[0], box[1] + box[3]//2), 18, (139,0,0))
+            overlay_image = drawTrueTypeTextOnImage(overlay_image, txt_label, (box[0], box[1]+box[3]//2), 18, (139,0,0))
             overlay_image = drawTrueTypeTextOnImage(overlay_image, conf_label, (box[0], box[1]+box[3]), 10, (0,0,255))
             
         savepath=os.path.join(debug_dir, f'{key}-icr-result.png')

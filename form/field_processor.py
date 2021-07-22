@@ -97,6 +97,25 @@ def make_power_2_handler(image, args_dict):
 
     return img
 
+def get_debug_image(img, mask):
+    #  expand shape from 1 channel to 3 channel
+    if len(img.shape) == 2:
+        img = img[:, :, None] * np.ones(3, dtype=int)[None, None, :]
+
+    if len(mask.shape) == 2:
+        mask = mask[:, :, None] * np.ones(3, dtype=int)[None, None, :]
+
+    shape = img.shape[:2]
+    h = shape[0]
+    w = shape[1]
+
+    debug_img = np.ones((2*h, w, 3), dtype = np.uint8) * 255
+    debug_img[0:h, :] = img
+    debug_img[h:2*h, :] = mask
+    cv2.line(debug_img, (0, h), (debug_img.shape[1], h), (255, 0, 0), 1)
+
+    return debug_img
+
 class FieldProcessor:
     
     def __init__(self, work_dir, models:dict = None) -> None:
@@ -105,6 +124,7 @@ class FieldProcessor:
             raise Exception('Invalid argument exception for modeld')
         self.work_dir = work_dir 
         self.models = models
+        self.store = {}
 
     def __process_pix2pix(self, key:str, snippet, opt, model, config) -> None:
         """process pix2pix form cleanup"""
@@ -206,6 +226,9 @@ class FieldProcessor:
         print("Processing field : {}".format(key))
         opt, model, config = self.__setup(key)
         work_dir = ensure_exists(os.path.join(self.work_dir, id, 'fields', key))
+        fields_aggro_dir = ensure_exists(os.path.join(self.work_dir, 'fields', key))
+        fields_clean_aggro_dir = ensure_exists(os.path.join(self.work_dir, 'fields_clean', key))
+        fields_debug_aggro_dir = ensure_exists(os.path.join(self.work_dir, 'fields_debug', key))
         opt.dataroot = work_dir
 
         # preprocessing
@@ -232,8 +255,8 @@ class FieldProcessor:
                 snippet = ret
 
         image_name = '%s.png' % (key)
-        save_path = os.path.join(work_dir, image_name)                   
-        imwrite(save_path, snippet)
+        imwrite(os.path.join(work_dir, image_name) , snippet)
+        imwrite(os.path.join(fields_aggro_dir, '%s.png' % (id)), snippet)
 
         # TODO : Add postprocessing
         arch = config['arch']
@@ -246,12 +269,14 @@ class FieldProcessor:
         label = 'real'
         debug_dir = ensure_exists(os.path.join(self.work_dir, id, 'fields_debug', key))
 
+        debug_img = get_debug_image(snippet, image_numpy)
         # Tensor is in RGB format OpenCV requires BGR
         # image_numpy = cv2.cvtColor(cleaned, cv2.COLOR_RGB2BGR)
         image_name = '%s_%s.png' % (name, label)
-        save_path = os.path.join(debug_dir, image_name)
-                       
-        imwrite(save_path, image_numpy)
+        imwrite(os.path.join(debug_dir, image_name), image_numpy)
+        imwrite(os.path.join(fields_clean_aggro_dir, '%s.png' % (id)), image_numpy)
+        imwrite(os.path.join(fields_debug_aggro_dir, '%s.png' % (id)), debug_img)
+
 
         return image_numpy
 
@@ -260,6 +285,9 @@ class FieldProcessor:
             Model setup
         """
         # TODO : Store models in cache so we don't have to reinitialize it
+        if key in self.store:
+            model_info = self.store[key]
+            return model_info["opt"], model_info["model"], model_info["data"] 
 
         name = self.models[key]
         config_file = os.path.join('./models/segmenter', name, 'config.json')
@@ -293,6 +321,7 @@ class FieldProcessor:
             model = create_model(opt)      # create a model given opt.model and other options
             model.setup(opt)               # regular setup: load and print networks; create schedulers
             
+            self.store[key] = {"opt": opt, "model": model, "data": data}
             return opt, model, data
         elif arch == 'smp':
             print('Loading SMP model')
@@ -323,7 +352,7 @@ class FieldProcessor:
                 model = model.module #This is required as we are wrapping the network in DataParallel if we are using CUDA 
             
             # model.eval() 
-
+            self.store[key] = {"opt": opt, "model": model, "data": data}
             return opt, model, data            
 
         raise Exception(f'Unknown architecture : {arch}')

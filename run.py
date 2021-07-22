@@ -56,7 +56,8 @@ class FormProcessor:
             segmenter_models[field_config['field']] = field_config['segmenter']
 
         m0 = current_milli_time()
-
+        work_dir =  self.work_dir
+        
         self.form_align = FormAlignment(work_dir)
         self.segmenter = FormSegmeneter(work_dir)
         self.field_processor = FieldProcessor(work_dir, segmenter_models)

@@ -17,15 +17,19 @@ def imwrite(path, img):
     except Exception as ident:
         print(ident)
 
-def get_debug_image(h, w, img):
+def get_debug_image(h, w, img, mask):
     #  expand shape from 1 channel to 3 channel
-    mask = np.ones((h, w), dtype = np.uint8)
-    # mask = mask[:, :, None] * np.ones(3, dtype = np.uint8)[None, None, :]
-    # mask = mask * 255
-    debug_img = np.ones((h, 2*w, 3), dtype = np.uint8) * 255
-    debug_img[:h, :w] = img
-    return debug_img
-    ##cv2.line(debug_img, (0, h), (debug_img.shape[1], h), (255, 0, 0), 1)
+    if len(img.shape) == 2:
+        img = img[:, :, None] * np.ones(3, dtype=int)[None, None, :]
+
+    if len(mask.shape) == 2:
+        mask = mask[:, :, None] * np.ones(3, dtype=int)[None, None, :]
+
+    debug_img = np.ones((2*h, w, 3), dtype = np.uint8) * 255
+
+    debug_img[0:h, :] = img
+    debug_img[h:2*h, :] = mask
+    cv2.line(debug_img, (0, h), (debug_img.shape[1], h), (255, 0, 0), 1)
     return debug_img
     
 

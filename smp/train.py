@@ -152,7 +152,7 @@ def build_dataset(data_dir, pad_size, crop_size):
         size=pad_size
     )
 
-    train_loader = DataLoader(train_dataset, batch_size=6, shuffle=True, num_workers=8)
+    train_loader = DataLoader(train_dataset, batch_size=12, shuffle=True, num_workers=8)
     valid_loader = DataLoader(valid_dataset, batch_size=1, shuffle=False, num_workers=4)
 
     # #### Visualize resulted augmented images and masks
@@ -246,13 +246,12 @@ def main():
     args.lr = 1e-4
     args.final_lr = 0.1
     args.gamma = 0.001
-    args.resume = True
+    args.resume = False
 
     # HCFA04
-    data_dir = '/home/greg/dev/assets-private/cvat/TRAINING-ON-DD-GPU/hicfa-mask/cvat-hicfa-mask/output_split/'
-    # pad_size = (1120//2, 1504//2)
-    pad_size = (512, 512) # WxH
-    crop_size = (256, 256)
+    data_dir = '/home/greg/dev/unet-denoiser/data-HCFA02-SET-2/'
+    pad_size = (1024, 160) # WxH
+    crop_size = (256, 128)
 
     train_loader, test_loader = build_dataset(data_dir, pad_size, crop_size)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -270,6 +269,7 @@ def main():
         best_acc = 0
         start_epoch = -1
 
+    # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA02/best_model.pth')
     net = build_model(args, device, device_ids=[0], ckpt=ckpt)
 
     loss = CustomLoss()

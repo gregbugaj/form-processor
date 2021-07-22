@@ -6,6 +6,7 @@ from utils.utils import current_milli_time
 import cv2
 import argparse
 import numpy as np
+import glob
 
 from run import FormProcessor
 from boxes.box_processor import BoxProcessor
@@ -22,6 +23,7 @@ if __name__ == '__main__':
     img_path='/home/greg/tmp/aligned_segment_scaled.png'
     img_path='/media/greg/XENSERVER-6/27ofStateFarm100/272943_0031516168746_001.tif'
     img_path='/tmp/form-segmentation/aligned_segment.png'
+    img_path='/home/greg/dataset/data-hipa/forms/hcfa-allstate/269688_202006290005126_001.tif'
 
     if False:
         image = cv2.imread(img_path)
@@ -37,7 +39,7 @@ if __name__ == '__main__':
         m1 = current_milli_time()- m0
         print('Time {} ms'.format(m1))
 
-    if True:
+    if False:
         work_dir='/tmp/segmentation-mask'
         m0 = current_milli_time()
         id = img_path.split('/')[-1]
@@ -65,9 +67,22 @@ if __name__ == '__main__':
         icr = IcrProcessor(work_dir)
         icr.icr_extract(id, key, snippet, boxes, img_fragments, lines)
 
-    if False:
-        processor = FormProcessor(work_dir='/tmp/form-segmentation', cuda=False)
-        processor.process(img_path)
+    if True:
+        config_path = 'config-single.json'
+        with open(config_path) as f:
+            config = json.load(f)
+
+        processor = FormProcessor(work_dir=work_dir, config=config, cuda=False)
+
+        for name in glob.glob('/home/greg/dataset/data-hipa/forms/hcfa-allstate/*.tif'):
+            try:
+                print(name)
+                results = processor.process(name)
+            except Exception as ident:
+                print(ident)
+
+        # processor = FormProcessor(work_dir=work_dir, config=config, cuda=False)
+        # results = processor.process(img_path)
 
     if False:
         img_path='/home/greg/tmp/snippets/009.png'
@@ -102,7 +117,6 @@ if __name__ == '__main__':
             icr(id, snip, boxes, fragments)
 
     if False:
-        import glob
         # for name in glob.glob('/tmp/hicfa/*.tif'):
         # for name in glob.glob('/home/greg/tmp/task_3100-3199-2021_05_26_23_59_41-cvat/images/*.tif'):
         for name in glob.glob('/home/greg/tmp/task_3100-3199-2021_05_26_23_59_41-cvat/images/PID_10_5_0_3129.original.tif'):
