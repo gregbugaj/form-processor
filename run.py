@@ -17,7 +17,7 @@ from form.numpyencoder import NumpyEncoder
 from form.icr_processor import IcrProcessor
 from form.field_processor import FieldProcessor
 
-from utils.image_utils import paste_fragment
+from utils.image_utils import imwrite, paste_fragment
 from utils.utils import current_milli_time, ensure_exists
 
 # logging
@@ -82,7 +82,11 @@ class FormProcessor:
 
             box_processor = self.box_processor
             img = overlay_img
-            snippet = img[seg_box[1]:seg_box[1]+seg_box[3], seg_box[0]:seg_box[0]+seg_box[2]]
+            
+            # allow for small padding around the component, this padding is not this same as margin
+            pad_x = 20
+            pad_y = 8
+            snippet = img[seg_box[1]:seg_box[1]+seg_box[3] + pad_y, seg_box[0]-pad_x:seg_box[0]+seg_box[2]+pad_x*2]
             snippet = cv2.cvtColor(snippet, cv2.COLOR_RGB2BGR)# convert RGB to BGR
             boxes, fragments, lines, _ = box_processor.extract_bounding_boxes(id, key, snippet)
 
@@ -121,7 +125,8 @@ class FormProcessor:
             if ar < 0.05 or ar > 0.30 or lr < 0.30:
                 return False, None
 
-            # TODO: add bottom edge detection
+            if min_x < 2 or (min_y + max_h) - 2 > seg_box[1]+seg_box[3]:
+                return False, None
 
             if True:
                 debug_dir = ensure_exists(os.path.join(work_dir, id, 'heuristics'))
@@ -209,7 +214,7 @@ class FormProcessor:
                 fragment = seg_fragments[field]
                 snippet = fragment['snippet']
                 box = fragment['box']
-                
+
                 # Heuristics is applied to original image rather than image
                 # TODO : Dynamicly call heuristics method rather than hardcode it here
                 if heuristics['enabled']:
@@ -218,6 +223,13 @@ class FormProcessor:
                     log.info('[%s] [%s] heuristics applied, time : %s, %s(ms)', id, field, heuristics_applied, m1-m0)
                     
                 if heuristics_applied:
+                    fields_aggro_dir = ensure_exists(os.path.join(self.work_dir, 'fields_heuristics', field))
+                    fields_clean_aggro_dir = ensure_exists(os.path.join(self.work_dir, 'fields_clean_heuristics', field))
+                    # fields_debug_aggro_dir = ensure_exists(os.path.join(self.work_dir, 'fields_debug', field))
+        
+                    imwrite(os.path.join(fields_aggro_dir, '%s.png' % (id)), snippet)
+                    imwrite(os.path.join(fields_clean_aggro_dir, '%s.png' % (id)), heuristics_snippet)
+
                     snippet = heuristics_snippet
                     snippet_margin = heuristics_snippet
                 else:
@@ -230,10 +242,8 @@ class FormProcessor:
                         seg_box = [max(0, box[0]+L), box[1], box[2], box[3]+B]
                         snippet_margin = img[seg_box[1]:seg_box[1]+seg_box[3], seg_box[0]:seg_box[0]+seg_box[2]]
                         box = seg_box
-
-                        # visualize(snippet=snippet, snippet_margin=snippet_margin)
-
                         snippet = field_processor.process(id, field, snippet_margin)
+
                         m1 = current_milli_time()
                         log.info('[%s] [%s] Field processor time : %s(ms)', id, field, m1-m0)
 
