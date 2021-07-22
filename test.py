@@ -74,7 +74,7 @@ if __name__ == '__main__':
 
         processor = FormProcessor(work_dir=work_dir, config=config, cuda=False)
 
-        for name in glob.glob('/home/greg/dataset/data-hipa/forms/hcfa-allstate/*.tif'):
+        for name in glob.glob('/home/greg/dev/assets-private/27ofStateFarm100/*.tif'):
             try:
                 print(name)
                 results = processor.process(name)

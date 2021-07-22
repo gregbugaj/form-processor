@@ -17,7 +17,7 @@
       "field": "HCFA02",
       "enabled": true,
       "heuristics": {
-        "enabled": false,
+        "enabled": true,
         "format": []
       },
       "margin":"-30,0,0,20",

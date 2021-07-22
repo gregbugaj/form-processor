@@ -219,6 +219,7 @@ class FormProcessor:
                     
                 if heuristics_applied:
                     snippet = heuristics_snippet
+                    snippet_margin = heuristics_snippet
                 else:
                     # if we don't have a segmenation specified then we skip it
                     if seg_name == '':
