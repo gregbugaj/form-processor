@@ -126,7 +126,7 @@ class FieldProcessor:
         self.models = models
         self.store = {}
 
-    def __process_pix2pix(self, key:str, snippet, opt, model, config) -> None:
+    def __process_pix2pix(self, key:str, id, snippet, opt, model, config) -> None:
         """process pix2pix form cleanup"""
         name = 'segmenation'
         debug_dir = ensure_exists(os.path.join(self.work_dir, id, 'fields_debug', key))

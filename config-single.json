@@ -17,10 +17,11 @@
       "field": "HCFA02",
       "enabled": true,
       "heuristics": {
-        "enabled": true,
+        "enabled": false,
         "format": []
       },
       "margin":"-30,0,0,20",
+      "segmenterPIX": "PIX_HCFA02",
       "segmenter": "SMP_HCFA02",
       "text_model": "ALPHA_NUMERIC"
     },    

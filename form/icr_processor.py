@@ -355,11 +355,15 @@ class IcrProcessor:
         shape = img.shape
         overlay_image = np.ones((shape[0], shape[1], 3), dtype = np.uint8)*255
         debug_dir = ensure_exists(os.path.join('/tmp/icr',id))
+        debug_all_dir = ensure_exists(os.path.join('/tmp/icr','fields', key))
 
         meta = {
             'imageSize': {'width': img.shape[1], 'height': img.shape[0]},
             'lang':'en'
         }
+        
+        print('------------ BOXES --------------')
+        print(boxes)
 
         words = []
         max_line_number = 0
@@ -386,6 +390,9 @@ class IcrProcessor:
             overlay_image = drawTrueTypeTextOnImage(overlay_image, conf_label, (box[0], box[1]+box[3]), 10, (0,0,255))
             
         savepath=os.path.join(debug_dir, f'{key}-icr-result.png')
+        imwrite(savepath, overlay_image)
+
+        savepath=os.path.join(debug_all_dir, f'{id}.png')
         imwrite(savepath, overlay_image)
 
         line_ids = np.empty((max_line_number), dtype=object)

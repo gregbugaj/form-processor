@@ -4,13 +4,54 @@ import torch.nn as nn
 from torch.nn import init
 import functools
 from torch.optim import lr_scheduler
+import torch.nn.functional as F
+import segmentation_models_pytorch as smp
+
+ALPHA=.7
+BETA=.3
+GAMMA=2
+
+class FocalTverskyLoss(nn.Module):
+    def __init__(self, weight=None, size_average=True):
+        super(FocalTverskyLoss, self).__init__()
+
+    def forward(self, inputs, targets, smooth=1, alpha=ALPHA, beta=BETA, gamma=GAMMA):
+        
+        # comment out if your model contains a sigmoid or equivalent activation layer
+        # inputs = F.sigmoid(inputs)       
+        
+        #flatten label and prediction tensors
+        inputs = inputs.view(-1)
+        targets = targets.view(-1)
+        
+        #True Positives, False Positives & False Negatives
+        TP = (inputs * targets).sum()    
+        FP = ((1-targets) * inputs).sum()
+        FN = (targets * (1-inputs)).sum()
+        
+        Tversky = (TP + smooth) / (TP + alpha*FP + beta*FN + smooth)  
+        FocalTversky = (1 - Tversky)**gamma
+                       
+        return FocalTversky
+
+class CustomLoss(nn.Module):
+    def __init__(self, weight=None, size_average=True):
+        super(CustomLoss, self).__init__()
+        self.dice_loss = smp.losses.DiceLoss(mode='binary')
+        self.focal_loss = FocalTverskyLoss()
+        self.__name__ = 'custom_loss'
+
+    def forward(self, inputs, targets):
+        dice_loss = self.dice_loss(inputs, targets)
+        focal_loss = self.focal_loss(inputs, targets)
+        criterion = dice_loss + (1 * focal_loss)
+                       
+        return criterion  
 
 
 ###############################################################################
 # Helper Functions
 ###############################################################################
-
-
 class Identity(nn.Module):
     def forward(self, x):
         return x
@@ -158,10 +199,54 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
     elif netG == 'unet_512':
         net = UnetGenerator(input_nc, output_nc, 9, ngf, norm_layer=norm_layer, use_dropout=use_dropout)# 512
     elif netG == 'unet_1024':
-        net = UnetGenerator(input_nc, output_nc, 10, ngf, norm_layer=norm_layer, use_dropout=use_dropout)#1024
+        net = UnetGenerator(input_nc, output_nc, 10, ngf, norm_layer=norm_layer, use_dropout=use_dropout)#1024  
+    elif netG == 'unet_pp':
+        net = UnetPlusPlusGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout)
     else:
         raise NotImplementedError('Generator model name [%s] is not recognized' % netG)
     return init_net(net, init_type, init_gain, gpu_ids)
+
+class UnetPlusPlusGenerator(nn.Module):
+    """Create a UnetPlusPlus-based generator"""
+
+    def __init__(self, input_nc, output_nc, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False):
+        """Construct a UnetPlusPlus generator
+        Parameters:
+            input_nc (int)  -- the number of channels in input images
+            output_nc (int) -- the number of channels in output images
+            ngf (int)       -- the number of filters in the last conv layer
+            norm_layer      -- normalization layer
+        """
+        super(UnetPlusPlusGenerator, self).__init__()
+        # construct unet structure
+        print('==> Building unet plus plus..')
+
+        # basic constants
+        ENCODER = 'resnet34' #vgg16' #'resnet34'
+        ENCODER_WEIGHTS = 'imagenet'
+        ACTIVATION = 'sigmoid' # 'sigmoid' #, 'sigmoid' #'sigmoid' # could be None for logits or 'softmax2d' for multiclass segmentation
+        DEVICE = 'cuda'
+        ENCODER_WEIGHTS = None
+
+        aux_params = {}
+        aux_params['activation'] = 'sigmoid'
+        aux_params['classes'] = 1
+
+        self.model = smp.UnetPlusPlus(
+            encoder_name=ENCODER, 
+            encoder_weights=ENCODER_WEIGHTS, 
+            classes=1, 
+            activation=ACTIVATION,
+            decoder_attention_type='scse',
+            in_channels = input_nc,
+            # decoder_channels = (ngf*5, ngf*4, ngf*3, ngf*2, ngf*1),
+            decoder_use_batchnorm = True,
+        )
+        # net = net.to(device)
+
+    def forward(self, input):
+        """Standard forward"""
+        return self.model(input)
 
 
 def define_D(input_nc, ndf, netD, n_layers_D=3, norm='batch', init_type='normal', init_gain=0.02, gpu_ids=[]):
@@ -207,7 +292,7 @@ def define_D(input_nc, ndf, netD, n_layers_D=3, norm='batch', init_type='normal'
         raise NotImplementedError('Discriminator model name [%s] is not recognized' % netD)
     return init_net(net, init_type, init_gain, gpu_ids)
 
-
+       
 ##############################################################################
 # Classes
 ##############################################################################
@@ -239,6 +324,8 @@ class GANLoss(nn.Module):
             self.loss = nn.BCEWithLogitsLoss()
         elif gan_mode in ['wgangp']:
             self.loss = None
+        elif gan_mode == 'focus':
+            self.loss = CustomLoss()
         else:
             raise NotImplementedError('gan mode %s not implemented' % gan_mode)
 
@@ -269,7 +356,7 @@ class GANLoss(nn.Module):
         Returns:
             the calculated loss.
         """
-        if self.gan_mode in ['lsgan', 'vanilla']:
+        if self.gan_mode in ['lsgan', 'vanilla', 'focus']:
             target_tensor = self.get_target_tensor(prediction, target_is_real)
             loss = self.loss(prediction, target_tensor)
         elif self.gan_mode == 'wgangp':

@@ -257,19 +257,20 @@ class BoxProcessor:
             lines_dir = ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'lines'))
 
             image = copy.deepcopy(image)
-            w = 1280 # image.shape[1] # 1280
+            # w = 1280 # image.shape[1] # 1280
+            w = image.shape[1] # 1280
             
             bboxes, polys, score_text = get_prediction(
                 image=image,
                 craft_net=self.craft_net,
                 refine_net=None,
                 text_threshold=0.7,
-                link_threshold=0.5,
+                link_threshold=0.4,
                 low_text=0.4,
                 cuda=self.cuda,
                 poly=True,
                 canvas_size=w, 
-                mag_ratio=1.5
+                mag_ratio=1#.5
             )
             
             prediction_result = dict()
