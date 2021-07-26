@@ -63,7 +63,14 @@ def get_debug_image(h, w, img, mask):
     debug_img[h:2*h, :] = mask
     cv2.line(debug_img, (0, h), (debug_img.shape[1], h), (255, 0, 0), 1)
     return debug_img
-    
+
+def normalizeMeanVariance(in_img, mean=(0.485, 0.456, 0.406), variance=(0.229, 0.224, 0.225)):
+    # should be RGB order
+    img = in_img.copy().astype(np.float32)
+
+    img -= np.array([mean[0] * 255.0, mean[1] * 255.0, mean[2] * 255.0], dtype=np.float32)
+    img /= np.array([variance[0] * 255.0, variance[1] * 255.0, variance[2] * 255.0], dtype=np.float32)
+    return img
 class Dataset(BaseDataset):
     """Read images, apply augmentation and preprocessing transformations.
     
@@ -113,14 +120,13 @@ class Dataset(BaseDataset):
         # read data
         image = cv2.imread(self.images_fps[i])
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        # image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-        mask = cv2.imread(self.masks_fps[i], 0)
+        mask = cv2.imread(self.masks_fps[i], cv2.IMREAD_GRAYSCALE)
+        # cv2.imwrite('/tmp/segmentation-mask/%s.png' % (i), image)
 
         def get_size(load_size, size):
             w, h = size
             new_w = load_size
             new_h = load_size * h // w
-
             return new_w, new_h
         
         size = self.size
@@ -143,40 +149,8 @@ class Dataset(BaseDataset):
             # image = cv2.resize(image, (w, h), interpolation = cv2.INTER_AREA)
             # mask = cv2.resize(mask, (w, h), interpolation = cv2.INTER_AREA)
  
-        # blur = cv2.GaussianBlur(mask,(3,3),0)
-        # mask = cv2.threshold(blur, 127, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)[1]
-
-        # img_path = '/tmp/segmentation-mask/mask_aaaaa{}.png'.format(i)
-        # cv2.imwrite(img_path, mask)
-
-        # debug = get_debug_image(h, w, image, mask)
-        # img_path = '/tmp/segmentation-mask/debug_{}.png'.format(i)
-        # cv2.imwrite(img_path, debug)
-
-        # ff_orig_mask = [(orig_mask < 127)]
-        # ff_mask = [(mask < 127)]
-
-        # count_orignal = np.count_nonzero(ff_orig_mask)
-        # count___mask = np.count_nonzero(ff_mask)
-
-        # print(f'{count_orignal} : {count___mask}')
-
-        # # Otsu's thresholding after Gaussian filtering
-        # # blur = cv2.GaussianBlur(mask,(3,3),0)
-        # ret3, mask = cv2.threshold(mask,127,255,cv2.THRESH_BINARY | cv2.THRESH_OTSU)            
-            
-        # img_path = '/tmp/segmentaion-mask/mask_resized_{}.png'.format(i)
-        # cv2.imwrite(img_path, mask)
-
-        # print(image.shape)
-        # print(mask.shape)
-
-        # import sys
-        # import numpy
-        # numpy.set_printoptions(threshold=sys.maxsize)
-
         # extract certain classes from mask (e.g. background)
-        masks = [(mask < 127)]
+        masks = [(mask < 127)]#127
         # print(mask.shape)
         mask = np.stack(masks, axis=-1).astype('float')
 
@@ -197,4 +171,4 @@ class Dataset(BaseDataset):
         return image, mask
 
     def __len__(self):
-        return len(self.ids_a)
+        return len(self.ids_a) #// 4

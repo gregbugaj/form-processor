@@ -1,26 +1,29 @@
 from __future__ import print_function
-from losses import CustomLoss
 
 import os
-import sys
+import random
+import time
+import warnings
+warnings.simplefilter("ignore")
+
 import argparse
-import torch
+import cv2
 import numpy as np
+import torch
 import segmentation_models_pytorch as smp
 
 import matplotlib.pyplot as plt
 import albumentations as albu
-
 from torch.utils.data import DataLoader
-
-from dataset import Dataset
-
 import torch.nn as nn
 import torch.nn.functional as F
-
 import torch.optim as optim
 import torch.backends.cudnn as cudnn
 from adabound.adabound import AdaBound
+from torchsummary import summary
+
+from dataset import Dataset
+from losses import CustomLoss
 
 # basic constants
 ENCODER = 'resnet34'
@@ -37,6 +40,10 @@ def get_training_augmentation(pad_size, crop_size):
     """
 
     train_transform = [
+        # albu.ShiftScaleRotate(shift_limit=0.0, scale_limit=0.0, rotate_limit=2, p=0.5, border_mode=0),
+        # albu.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.2, rotate_limit=5, p=0.5, border_mode=cv2.BORDER_CONSTANT, always_apply=False),
+        # albu.ImageCompression(6, 10, p=0.5, always_apply=False),
+        # CoarseDropout
         albu.PadIfNeeded(min_height=pad_size[1], min_width=pad_size[0], always_apply=True, border_mode=0),
         albu.RandomCrop(height=crop_size[1], width=crop_size[0], always_apply=True),
     ]
@@ -47,7 +54,9 @@ def get_validation_augmentation(pad_size):
     """Add paddings to make image shape divisible by 32"""
 
     test_transform = [
-        albu.PadIfNeeded(min_height=pad_size[1], min_width=pad_size[0], always_apply=True, border_mode=0), # HCFA04
+        albu.PadIfNeeded(min_height=pad_size[1], min_width=pad_size[0], always_apply=True, border_mode=0),
+        # albu.ShiftScaleRotate(shift_limit=0.0, scale_limit=0.0, rotate_limit=2, p=0.5, border_mode=0),
+        # albu.ImageCompression(6, 10, p=0.5, always_apply=False),
     ]
     return albu.Compose(test_transform)
 
@@ -86,11 +95,19 @@ def visualize(**images):
     plt.show()
 
 preprocessing_fn = smp.encoders.get_preprocessing_fn(ENCODER, ENCODER_WEIGHTS)
+# preprocessing_fn = smp.encoders.get_preprocessing_fn(ENCODER)
 
 metrics = [
     smp.utils.metrics.IoU(threshold=0.5),
     smp.utils.metrics.Fscore(threshold=0.5),
 ]
+
+def seed_everything(seed=2**3):
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    torch.backends.cudnn.deterministic = True
 
 def build_model(args, device, device_ids=[0], ckpt=None):
     print('==> Building model..')
@@ -101,6 +118,9 @@ def build_model(args, device, device_ids=[0], ckpt=None):
         classes=len(CLASSES), 
         activation=ACTIVATION,
         decoder_attention_type='scse',
+        decoder_use_batchnorm = True,
+        # decoder_channels= (1024, 512, 256, 128, 64),
+        # decoder_channels= (512, 256, 128, 64, 32),
         # in_channels=1,
     )
 
@@ -152,7 +172,7 @@ def build_dataset(data_dir, pad_size, crop_size):
         size=pad_size
     )
 
-    train_loader = DataLoader(train_dataset, batch_size=12, shuffle=True, num_workers=8)
+    train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=8)
     valid_loader = DataLoader(valid_dataset, batch_size=1, shuffle=False, num_workers=4)
 
     # #### Visualize resulted augmented images and masks
@@ -237,6 +257,16 @@ def create_optimizer(args, model_params):
                         final_lr=args.final_lr, gamma=args.gamma,
                         weight_decay=args.weight_decay, amsbound=True)
 
+
+def summary(net):
+    """Print network summary"""
+    print('Summary >>> ')
+    for name, param in net.named_parameters():
+        if param.requires_grad:
+            print(f'{name}')
+    total_params = sum(p.numel() for p in net.parameters() if p.requires_grad)
+    print(f'Total number of parameters : {total_params}')
+
 def main():
     parser = get_parser()
     args = parser.parse_args()
@@ -248,10 +278,13 @@ def main():
     args.gamma = 0.001
     args.resume = False
 
+    # 0.9433866147994998
+    # custom_loss - 0.9466, iou_score - 0.9434, fscore - 0.9695
+
     # HCFA04
-    data_dir = '/home/greg/dev/unet-denoiser/data-HCFA02-SET-2/'
+    data_dir = '/home/greg/dev/unet-denoiser/data-HCFA02-SET-3/'
     pad_size = (1024, 160) # WxH
-    crop_size = (256, 128)
+    crop_size = (256, 160)
 
     train_loader, test_loader = build_dataset(data_dir, pad_size, crop_size)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -270,7 +303,11 @@ def main():
         start_epoch = -1
 
     # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA02/best_model.pth')
-    net = build_model(args, device, device_ids=[0], ckpt=ckpt)
+    net = torch.load('./best_model@87.pth')
+    net = torch.load('./best_model@9047675494849672.pth')#0.9047675494849672
+    # net = build_model(args, device, device_ids=[0, 1], ckpt=ckpt)
+
+    summary(net)
 
     loss = CustomLoss()
     loss._name = 'custom_loss'
@@ -279,7 +316,8 @@ def main():
     start_epoch = -1
 
     optimizer = create_optimizer(args, net.parameters())
-    scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=40, gamma=0.1, last_epoch=-1)
+    # scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1, last_epoch=-1)
+    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[60, 140], gamma=0.1)
 
     # # prevent : KeyError: "param 'initial_lr' is not specified in param_groups[0] when resuming an optimizer"
     # for i in range(start_epoch):
@@ -308,8 +346,8 @@ def main():
     
     best_acc = 0
     
-    for epoch in range(start_epoch+1, 120):
-        print('\nEpoch: {}'.format(epoch))
+    for epoch in range(start_epoch+1, 200):
+        print('Epoch-{0} lr: {1}'.format(epoch, optimizer.param_groups[0]['lr']))
         train_logs = train_epoch.run(train_loader)
         valid_logs = test_epoch.run(test_loader)
         
@@ -343,4 +381,5 @@ def main():
                    os.path.join('curve', ckpt_name))
 
 if __name__ == '__main__':
+    seed_everything(121)
     main()        

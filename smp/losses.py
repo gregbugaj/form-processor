@@ -10,7 +10,7 @@ import segmentation_models_pytorch as smp
 
 ALPHA=.7
 BETA=.3
-GAMMA=2
+GAMMA=0.75
 
 class FocalTverskyLoss(nn.Module):
     def __init__(self, weight=None, size_average=True):
@@ -45,6 +45,7 @@ class CustomLoss(nn.Module):
     def forward(self, inputs, targets):
         dice_loss = self.dice_loss(inputs, targets)
         focal_loss = self.focal_loss(inputs, targets)
+        # criterion = dice_loss + (1 * focal_loss)
         criterion = dice_loss + (1 * focal_loss)
                        
         return criterion        
