@@ -23,21 +23,6 @@ from pix2pix.models import create_model
 from pix2pix.util.visualizer import save_images
 from pix2pix.util.util import tensor2im
 
-# Don't change the order here as the field dictionary depends on it
-# (hMin = 175 , sMin = 132, vMin = 21), (hMax = 178 , sMax = 158, vMax = 255)
-
-hsv_color_ranges_XXXX= [
-            [[55, 58, 0], [86, 255, 255]],      # GREEN DARK  7fd99d
-            [[123, 99, 206], [140, 255, 255]],  # Purple      a96df8
-            [[0, 152, 240], [9, 255, 255]],     # Red         ff614e
-            [[97, 188, 0], [179, 255, 178]],    # Blue        016aa4
-            [[0, 220, 221 ], [30, 255, 255]],   # YELLOW      99624a
-            [[0, 0, 120], [19, 255, 167]],      # Brown       99624a (hMin = 0 , sMin = 0, vMin = 120), (hMax = 19 , sMax = 255, vMax = 167)
-            [[38, 154, 188], [51, 255, 255]],   # GREEN
-            [[45, 187, 207], [179, 255, 255]],  # PINK
-            [[0, 230, 160], [21, 255, 255]],    # ORANGE     (hMin = 0 , sMin = 230, vMin = 160), (hMax = 21 , sMax = 255, vMax = 255)
-        ]
-
 def viewImage(image, name='Display'):
     cv2.namedWindow(name, cv2.WINDOW_AUTOSIZE)
     cv2.imshow(name, image)

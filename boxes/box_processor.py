@@ -259,18 +259,32 @@ class BoxProcessor:
             image = copy.deepcopy(image)
             # w = 1280 # image.shape[1] # 1280
             w = image.shape[1] # 1280
-            
+
+            def compute_input(image):                
+                # should be RGB order
+                image = image.astype('float32')
+                mean = np.array([0.485, 0.456, 0.406])
+                variance = np.array([0.229, 0.224, 0.225])
+
+                image -= mean * 255
+                image /= variance * 255
+                return image
+
+            # Processin box detection on normalized inmage
+            image_norm = compute_input(image)        
+            cv2.imwrite(os.path.join('/tmp/icr/fields/HCFA02', "NORM_%s.png" % (id)), image_norm)
+
             bboxes, polys, score_text = get_prediction(
-                image=image,
+                image=image_norm,
                 craft_net=self.craft_net,
-                refine_net=None,
+                # refine_net=self.refine_net,
                 text_threshold=0.7,
                 link_threshold=0.4,
                 low_text=0.4,
                 cuda=self.cuda,
                 poly=True,
-                canvas_size=w, 
-                mag_ratio=1#.5
+                canvas_size = w + w // 2, 
+                mag_ratio=1.5
             )
             
             prediction_result = dict()
@@ -444,6 +458,9 @@ class BoxProcessor:
                 # export cropped region
                 file_path = os.path.join(crops_dir, "%s_%s.jpg" % (ms, idx))
                 cv2.imwrite(file_path, snippet)
+                
+                # After normalization image is in 0-1 range
+                # snippet = (snippet * 255).astype(np.uint8)
                 paste_fragment(pil_image, snippet, (x, y))
 
                 # break    

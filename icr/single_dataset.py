@@ -31,7 +31,7 @@ class SingleDataset(Dataset):
                 else:
                     img = Image.new('L', (self.opt.imgW, self.opt.imgH))
 
-        elif type(image) == np.ndarray:
+        elif type(image) == np.ndarray:            
             img = Image.fromarray(image)
 
         if self.opt.rgb:

@@ -155,6 +155,16 @@ def icr_debug(opt):
                 log.write(f'{img_name:25s}\t{pred:32s}\t{confidence_score:0.4f}\n')
 
             log.close()
+
+def compute_input(image):                
+    # should be RGB order
+    image = image.astype('float32')
+    mean = np.array([0.485, 0.456, 0.406])
+    variance = np.array([0.229, 0.224, 0.225])
+
+    image -= mean * 255
+    image /= variance * 255
+    return image
 class IcrProcessor:
     def __init__(self,work_dir:str = '/tmp/form-segmentation', cuda: bool = False) -> None:
         print("ICR processor [cuda={}]".format(cuda))
@@ -275,6 +285,10 @@ class IcrProcessor:
         converter = self.converter
         confidence_score = 0.0
         txt = ''
+        
+        # After normalization image is in 0-1 range  so scale it up to 0-255      
+        image = compute_input(image)        
+        image = (image * 255).astype(np.uint8)
 
         # setup data
         # Fixme: setting batch size to 1 will cause "TypeError: forward() missing 2 required positional arguments: 'input' and 'text'"
