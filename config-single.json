@@ -8,7 +8,7 @@
         "enabled": false,
         "format": []
       },
-      "margin":"-1000,-10,10,10",
+      "margin":"-250,-10,250,10",
       "segmenter": "SMP_HCFA21",
       "text_model": "ALPHA_NUMERIC"
     },

@@ -258,11 +258,8 @@ class IcrProcessor:
         confidence_score = 0.0
         txt = ''
         
-        # After normalization image is in 0-1 range  so scale it up to 0-255      
-        # image = compute_input(image)        
-        # image = (image * 255).astype(np.uint8)
-
         # Convert color to grayscale
+        # After normalization image is in 0-1 range  so scale it up to 0-255      
         image = cv2.cvtColor(image, code=cv2.COLOR_RGB2GRAY)
         image = image.astype("float32") / 255
         image = (image * 255).astype(np.uint8)

@@ -328,7 +328,8 @@ class BoxProcessor:
             # sort boxes by the  y-coordinate of the bounding box
             idxs = np.argsort(y1)
             lines = []
-
+            size = len(idxs)
+            iter_idx = 0
             while len(idxs) > 0:
                 last = len(idxs) - 1
                 idx = idxs[last]
@@ -357,7 +358,12 @@ class BoxProcessor:
                 # Ex : 'index 9 is out of bounds for axis 0 with size 9'
                 #  numpy.delete(arr, obj, axis=None)[source]¶
                 indexes = indexes[indexes < idxs.size]
-                idxs = np.delete(idxs, indexes, axis=0)         
+                idxs = np.delete(idxs, indexes, axis=0)      
+                iter_idx = iter_idx + 1   
+                # prevent inf loop
+                if iter_idx > size:
+                    print('ERROR:Infinitie loop detected')
+                    break
             
             # reverse to get the right order
             lines = np.array(lines)[::-1]

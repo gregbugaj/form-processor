@@ -283,8 +283,9 @@ def main():
 
     # HCFA04
     data_dir = '/home/greg/dev/unet-denoiser/data_HCFA24NoText'
-    pad_size = (2624, 1024) # WxH
-    crop_size = (256, 256)
+    pad_size = (2048, 512) # WxH
+    crop_size = (256, 128)
+    # crop_size = (128, 128)
 
     train_loader, test_loader = build_dataset(data_dir, pad_size, crop_size)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -306,7 +307,6 @@ def main():
     # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA21/best_model.pth')
     # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA21/best_model.pth')#  map_location={'cuda:0':'cuda:0'}
     net = torch.load('./best_model.pth')#  map_location={'cuda:0':'cuda:0'}
-    # net.to('cuda:0') # Puts tensor 'a' on device 0
 
     # net = build_model(args, device, device_ids=[0], ckpt=ckpt)
     summary(net)
