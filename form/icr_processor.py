@@ -41,39 +41,6 @@ def ensure_exists(dir):
         os.makedirs(dir)   
     return dir
 
-# python3 eval.py 
-# --Transformation TPS 
-# --FeatureExtraction ResNet 
-# --SequenceModeling BiLSTM 
-# --Prediction Attn 
-# --image_folder   /tmp/form-segmentation/txt_overlay001.jpg/bounding_boxes/field/crop 
-# --saved_model ./saved_models/TPS-ResNet-BiLSTM-Attn-Seed1111/best_accuracy.pth --sensitive --imgH 32 --imgW 100
-
-# opt = Object()
-# opt.Transformation = 'TPS'
-# opt.FeatureExtraction = 'ResNet'
-# opt.SequenceModeling = 'BiLSTM'
-# opt.Prediction = 'Attn'
-# opt.saved_model = './models/icr/TPS-ResNet-BiLSTM-Attn/best_accuracy.pth'
-# opt.sensitive = True
-# opt.imgH = 32
-# opt.imgW = 100        
-# opt.character = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\]^_`{|}~'
-# opt.rgb = False
-# opt.num_fiducial = 20
-# opt.input_channel = 1
-# opt.output_channel = 512
-# opt.hidden_size = 256
-# opt.batch_max_length = 25
-# opt.batch_size = 192
-# opt.PAD = True
-# opt.rgb = False
-# opt.workers = 4
-# opt.num_gpu = 0
-# opt.image_folder = '/tmp/form-segmentation/txt_overlay001.jpg/bounding_boxes/field/crop'
-
-# icr_debug(opt)
-
 def icr_debug(opt):
     """
         ICR debug utility
@@ -206,7 +173,7 @@ class IcrProcessor:
             opt.sensitive = False
             opt.imgH = 32
             opt.imgW = 100        
-            opt.character = '0123456789abcdefghijklmnopqrstuvwxyz'
+            opt.character = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
             # opt.character = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ!"#$%&\'()*+,-./:;<=>?@[\]^_`{|}~'
             opt.num_fiducial = 20
             opt.input_channel = 1
@@ -272,10 +239,15 @@ class IcrProcessor:
         return converter, model
 
     def extract_text(self,id,key,image):
+        """Recognize text from a single image.
+           Process image via ICR, this is lowlever API, to get more usable results call extract_icr.
+
+        Args:
+            id: Unique Image ID
+            key: Unique image key
+            image: A pre-cropped image containing characters
         """
-            Process image via ICR, this is lowlever API
-            To get more usable results call extract_icr
-        """
+
         print('ICR processing : {}, {}'.format(id, key))
         # debug_dir =  ensure_exists(os.path.join(self.work_dir,id,'icr',key,'debug'))
         # output_dir = ensure_exists(os.path.join(self.work_dir,id,'icr',key,'output'))
@@ -287,9 +259,14 @@ class IcrProcessor:
         txt = ''
         
         # After normalization image is in 0-1 range  so scale it up to 0-255      
-        image = compute_input(image)        
-        image = (image * 255).astype(np.uint8)
+        # image = compute_input(image)        
+        # image = (image * 255).astype(np.uint8)
 
+        # Convert color to grayscale
+        image = cv2.cvtColor(image, code=cv2.COLOR_RGB2GRAY)
+        image = image.astype("float32") / 255
+        image = (image * 255).astype(np.uint8)
+        
         # setup data
         # Fixme: setting batch size to 1 will cause "TypeError: forward() missing 2 required positional arguments: 'input' and 'text'"
         AlignCollate_data = AlignCollate(imgH=opt.imgH, imgW=opt.imgW, keep_ratio_with_pad=opt.PAD)
@@ -321,7 +298,6 @@ class IcrProcessor:
                     preds_str = converter.decode(preds_index, preds_size)
 
                 else:
-                    # preds = model(image, text_for_pred, is_train=False)
                     preds = model(image, text_for_pred, is_train=False)
                     # select max probabilty (greedy decoding) then decode index to character
                     _, preds_index = preds.max(2)
@@ -360,8 +336,12 @@ class IcrProcessor:
         return txt, confidence
 
     def icr_extract(self, id, key, img, boxes, fragments, lines):
-        """
-            Performs ICR extraction on the data
+        """Recognize text from multiple images.
+
+        Args:
+            id: Unique Image ID
+            key: Unique image key
+            image: A pre-cropped image containing characters
         """
         print('ICR : {}'.format(id))
         print('shape : {}'.format(img.shape))
@@ -376,9 +356,6 @@ class IcrProcessor:
             'lang':'en'
         }
         
-        print('------------ BOXES --------------')
-        print(boxes)
-
         words = []
         max_line_number = 0
 
@@ -403,10 +380,10 @@ class IcrProcessor:
             overlay_image = drawTrueTypeTextOnImage(overlay_image, txt_label, (box[0], box[1]+box[3]//2), 18, (139,0,0))
             overlay_image = drawTrueTypeTextOnImage(overlay_image, conf_label, (box[0], box[1]+box[3]), 10, (0,0,255))
             
-        savepath=os.path.join(debug_dir, f'{key}-icr-result.png')
+        savepath = os.path.join(debug_dir, f'{key}-icr-result.png')
         imwrite(savepath, overlay_image)
 
-        savepath=os.path.join(debug_all_dir, f'{id}.png')
+        savepath = os.path.join(debug_all_dir, f'{id}.png')
         imwrite(savepath, overlay_image)
 
         line_ids = np.empty((max_line_number), dtype=object)

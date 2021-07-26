@@ -150,7 +150,7 @@ class Dataset(BaseDataset):
             # mask = cv2.resize(mask, (w, h), interpolation = cv2.INTER_AREA)
  
         # extract certain classes from mask (e.g. background)
-        masks = [(mask < 127)]#127
+        masks = [(mask < 150)]#127
         # print(mask.shape)
         mask = np.stack(masks, axis=-1).astype('float')
 

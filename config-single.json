@@ -3,19 +3,19 @@
 
     {
       "field": "HCFA21",
-      "enabled": false,
+      "enabled": true,
       "heuristics": {
         "enabled": false,
         "format": []
       },
-      "margin":"-10,-10,10,10",
+      "margin":"-1000,-10,10,10",
       "segmenter": "SMP_HCFA21",
       "text_model": "ALPHA_NUMERIC"
     },
     
     {
       "field": "HCFA02",
-      "enabled": true,
+      "enabled": false,
       "heuristics": {
         "enabled": false,
         "format": []

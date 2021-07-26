@@ -44,7 +44,7 @@ def get_training_augmentation(pad_size, crop_size):
         # albu.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.2, rotate_limit=5, p=0.5, border_mode=cv2.BORDER_CONSTANT, always_apply=False),
         # albu.ImageCompression(6, 10, p=0.5, always_apply=False),
         # CoarseDropout
-        albu.PadIfNeeded(min_height=pad_size[1], min_width=pad_size[0], always_apply=True, border_mode=0),
+        # albu.PadIfNeeded(min_height=pad_size[1], min_width=pad_size[0], always_apply=True, border_mode=0),
         albu.RandomCrop(height=crop_size[1], width=crop_size[0], always_apply=True),
     ]
     
@@ -54,10 +54,10 @@ def get_validation_augmentation(pad_size):
     """Add paddings to make image shape divisible by 32"""
 
     test_transform = [
-        albu.PadIfNeeded(min_height=pad_size[1], min_width=pad_size[0], always_apply=True, border_mode=0),
-        # albu.ShiftScaleRotate(shift_limit=0.0, scale_limit=0.0, rotate_limit=2, p=0.5, border_mode=0),
-        # albu.ImageCompression(6, 10, p=0.5, always_apply=False),
+        # albu.PadIfNeeded(min_height=pad_size[1], min_width=pad_size[0], always_apply=True, border_mode=0),
+        albu.RandomCrop(height=256, width=256, always_apply=True),
     ]
+
     return albu.Compose(test_transform)
 
 
@@ -172,7 +172,7 @@ def build_dataset(data_dir, pad_size, crop_size):
         size=pad_size
     )
 
-    train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=8)
+    train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True, num_workers=8)
     valid_loader = DataLoader(valid_dataset, batch_size=1, shuffle=False, num_workers=4)
 
     # #### Visualize resulted augmented images and masks
@@ -282,9 +282,9 @@ def main():
     # custom_loss - 0.9466, iou_score - 0.9434, fscore - 0.9695
 
     # HCFA04
-    data_dir = '/home/greg/dev/unet-denoiser/data-HCFA02-SET-3/'
-    pad_size = (1024, 160) # WxH
-    crop_size = (256, 160)
+    data_dir = '/home/greg/dev/unet-denoiser/data_HCFA24NoText'
+    pad_size = (2624, 1024) # WxH
+    crop_size = (256, 256)
 
     train_loader, test_loader = build_dataset(data_dir, pad_size, crop_size)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -303,12 +303,13 @@ def main():
         start_epoch = -1
 
     # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA02/best_model.pth')
-    net = torch.load('./best_model@87.pth')
-    net = torch.load('./best_model@9047675494849672.pth')#0.9047675494849672
-    # net = build_model(args, device, device_ids=[0, 1], ckpt=ckpt)
+    # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA21/best_model.pth')
+    # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA21/best_model.pth')#  map_location={'cuda:0':'cuda:0'}
+    net = torch.load('./best_model.pth')#  map_location={'cuda:0':'cuda:0'}
+    # net.to('cuda:0') # Puts tensor 'a' on device 0
 
+    # net = build_model(args, device, device_ids=[0], ckpt=ckpt)
     summary(net)
-
     loss = CustomLoss()
     loss._name = 'custom_loss'
 

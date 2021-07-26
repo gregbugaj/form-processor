@@ -135,8 +135,6 @@ def line_detection(src):
 
     # detected_lines = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, vertical_kernel, iterations=2)
 
-    cv2.imwrite('/home/greg/dev/form-processor/result/detected_linesXX.png', detected_lines)
-
 
 def get_prediction(craft_net, image, text_threshold, link_threshold, low_text, cuda, poly, canvas_size, mag_ratio, refine_net=None):
     net = craft_net
@@ -147,12 +145,16 @@ def get_prediction(craft_net, image, text_threshold, link_threshold, low_text, c
     img_resized, target_ratio, size_heatmap = craft.imgproc.resize_aspect_ratio(image, canvas_size, interpolation=cv2.INTER_LINEAR, mag_ratio= mag_ratio)
     ratio_h = ratio_w = 1 / target_ratio
 
+    cv2.imwrite('/tmp/fragments/img_resized.png', img_resized)
     # preprocessing
     x = craft.imgproc.normalizeMeanVariance(img_resized)
+    cv2.imwrite('/tmp/fragments/norm.png', x)
+
     x = torch.from_numpy(x).permute(2, 0, 1)    # [h, w, c] to [c, h, w]
     x = Variable(x.unsqueeze(0))                # [c, h, w] to [b, c, h, w]
     if cuda:
         x = x.cuda()
+
 
     # forward pass
     with torch.no_grad():
@@ -245,9 +247,14 @@ class BoxProcessor:
         return net, refine_net
 
     def extract_bounding_boxes(self, id, key, image):
-        """
-            Extrac bouding boxes for specific image, try to predict line number representin each bouding box. 
-            return box array, fragment array, line_number array,  prediciton results
+        """Extrac bouding boxes for specific image, try to predict line number representin each bouding box. 
+
+        Args:
+            id: Unique Image ID
+            key: Unique image key
+            image: A pre-cropped image containing characters
+        Return:            
+            box array, fragment array, line_number array,  prediciton results
         """
         print('Extracting bounding boxes : {}, {}'.format(id, key))
         
@@ -272,19 +279,20 @@ class BoxProcessor:
 
             # Processin box detection on normalized inmage
             image_norm = compute_input(image)        
-            cv2.imwrite(os.path.join('/tmp/icr/fields/HCFA02', "NORM_%s.png" % (id)), image_norm)
+            image_norm = image
+            cv2.imwrite(os.path.join('/tmp/icr/fields/', key, "NORM_%s.png" % (id)), image_norm)
 
             bboxes, polys, score_text = get_prediction(
                 image=image_norm,
                 craft_net=self.craft_net,
-                # refine_net=self.refine_net,
+                refine_net=None, #self.refine_net,
                 text_threshold=0.7,
-                link_threshold=0.4,
+                link_threshold=0.3,
                 low_text=0.4,
                 cuda=self.cuda,
                 poly=True,
                 canvas_size = w + w // 2, 
-                mag_ratio=1.5
+                mag_ratio=1 #1.5
             )
             
             prediction_result = dict()
@@ -475,80 +483,6 @@ class BoxProcessor:
             print(ident)
 
         return [], [], [], None
-
-    def process_full_extraction(self, id, image, link_threshold=0.3):
-        """
-            Do full image text extraction
-        """
-        print('Processing full image extraction: {}'.format(id))
-
-        debug_dir = ensure_exists(os.path.join(self.work_dir,id,'boxes_full'))
-        crops_dir = ensure_exists(os.path.join(self.work_dir,id,'crops_full'))
-
-        h=image.shape[0]
-        w=image.shape[1]
-        image=copy.deepcopy(image)
-
-        # perform prediction
-        # This numbers seams to work but need more testing
-        bboxes, polys, score_text = get_prediction(
-            image=image,
-            craft_net=self.craft_net,
-            refine_net=self.refine_net,
-            text_threshold=0.4,
-            link_threshold=.1,
-            low_text=0.3,
-            cuda=self.cuda,
-            poly=True,
-            canvas_size=1280,
-            mag_ratio=1.5
-        )
-        
-        prediction_result = dict()
-        prediction_result['bboxes'] = bboxes
-        prediction_result['polys'] = polys
-        prediction_result['heatmap'] = score_text
-        
-        # deepcopy image so that original is not altered
-        image = copy.deepcopy(image)
-        regions = bboxes
-
-        # convert imaget to BGR color
-        image = cv2.cvtColor(image, cv2.COLOR_RGB2BGR)
-        file_path = os.path.join(debug_dir, "src.png")
-        cv2.imwrite(file_path, image)
-        
-        pil_image = Image.new('RGB', (image.shape[1], image.shape[0]), color=(255,255,255,0))
-
-        rect_from_poly = []
-        fragments = []
-
-        for i, region in enumerate(regions):
-            region = np.array(region).astype(np.int32).reshape((-1))
-            region = region.reshape(-1, 2)
-            poly = region.reshape((-1, 1, 2))
-
-            rect = cv2.boundingRect(poly)
-            rect = np.array(rect).astype(np.int32)
-            x,y,w,h = rect
-
-            # if h < 15:
-            #     continue
-            
-            snippet = crop_poly_low(image, poly)
-            fragments.append(snippet)
-            rect_from_poly.append(rect)
-            # export cropped region
-            file_path = os.path.join(crops_dir, "%s.jpg" % (i))
-            cv2.imwrite(file_path, snippet)
-            paste_fragment(pil_image, snippet, (x, y))
-
-        savepath = os.path.join(debug_dir, "%s.jpg" % ('txt_overlay'))
-        pil_image.save(savepath, format='JPEG', subsampling=0, quality=100)
-
-        cv_img = cv2.cvtColor(np.array(pil_image), cv2.COLOR_RGB2BGR)
-        return rect_from_poly, fragments, cv_img, prediction_result 
-
 class Object(object):
     pass 
 

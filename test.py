@@ -57,12 +57,11 @@ if __name__ == '__main__':
         
     if False:
         img_path = '/tmp/form-segmentation/PID_10_5_0_3104.original.tif/fields_debug/HCFA24/segmenation_real.png'
-        img_path = '/tmp/form-segmentation/PID_10_5_0_3101.original.tif/fields_debug/HCFA24/segmenation_real.png'
+        img_path = '/tmp/form-segmentation/272943_0031516168746_001.tif/fields_debug/HCFA02/segmenation_real.png'
 
         snippet = cv2.imread(img_path)
-        id = 'PID_10_5_0_3101'
+        id = '272943_0031516168746_001'
         key = 'HCFA24'
-        # snippet = cv2.cvtColor(snippet, cv2.COLOR_RGB2BGR)# convert RGB to BGR
         boxer = BoxProcessor(work_dir, cuda=False)
         boxes, img_fragments, lines, _= boxer.extract_bounding_boxes(id, 'field', snippet)
 
@@ -79,11 +78,9 @@ if __name__ == '__main__':
             try:
                 print(name)
                 results = processor.process(name)
+                # break
             except Exception as ident:
                 print(ident)
-
-        # processor = FormProcessor(work_dir=work_dir, config=config, cuda=False)
-        # results = processor.process(img_path)
 
     if False:
         img_path='/tmp/form-segmentation/272944_0031516168976_001.tif/fields_debug/HCFA02/segmenation_real.png'
