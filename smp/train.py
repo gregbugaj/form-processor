@@ -109,7 +109,7 @@ def seed_everything(seed=2**3):
     random.seed(seed)
     torch.backends.cudnn.deterministic = True
 
-def build_model(args, device, device_ids=[0], ckpt=None):
+def build_model(args, device, device_ids=[0,1], ckpt=None):
     print('==> Building model..')
 
     net = smp.UnetPlusPlus(
@@ -172,7 +172,7 @@ def build_dataset(data_dir, pad_size, crop_size):
         size=pad_size
     )
 
-    train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True, num_workers=8)
+    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=8)
     valid_loader = DataLoader(valid_dataset, batch_size=1, shuffle=False, num_workers=4)
 
     # #### Visualize resulted augmented images and masks
@@ -306,7 +306,7 @@ def main():
     # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA02/best_model.pth')
     # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA21/best_model.pth')
     # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA21/best_model.pth')#  map_location={'cuda:0':'cuda:0'}
-    net = torch.load('./best_model.pth')#  map_location={'cuda:0':'cuda:0'}
+    net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA24/best_model.pth')#  map_location={'cuda:0':'cuda:0'}
 
     # net = build_model(args, device, device_ids=[0], ckpt=ckpt)
     summary(net)
@@ -318,7 +318,7 @@ def main():
 
     optimizer = create_optimizer(args, net.parameters())
     # scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1, last_epoch=-1)
-    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[60, 140], gamma=0.1)
+    scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[60, 180], gamma=0.1)
 
     # # prevent : KeyError: "param 'initial_lr' is not specified in param_groups[0] when resuming an optimizer"
     # for i in range(start_epoch):

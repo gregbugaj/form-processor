@@ -194,6 +194,26 @@ def get_prediction(craft_net, image, text_threshold, link_threshold, low_text, c
     # line_detection(score_text * 255)
     return boxes, polys, ret_score_text
 
+def order_points(pts):
+	# initialize a list of coordinates that will be ordered
+	# such that the first entry in the list is the top-left,
+	# the second entry is the top-right, the third is the
+	# bottom-right, and the fourth is the bottom-left
+	rect = np.zeros((4, 2), dtype="float32")
+	# the top-left point will have the smallest sum, whereas
+	# the bottom-right point will have the largest sum
+	s = pts.sum(axis=1)
+	rect[0] = pts[np.argmin(s)]
+	rect[2] = pts[np.argmax(s)]
+	# now, compute the difference between the points, the
+	# top-right point will have the smallest difference,
+	# whereas the bottom-left will have the largest difference
+	diff = np.diff(pts, axis=1)
+	rect[1] = pts[np.argmin(diff)]
+	rect[3] = pts[np.argmax(diff)]
+	# return the ordered coordinates
+	return rect
+
 
 class BoxProcessor:
     def __init__(self, work_dir:str = '/tmp/form-segmentation', cuda: bool = False) -> None:
@@ -262,6 +282,7 @@ class BoxProcessor:
             debug_dir = ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'debug'))
             crops_dir = ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'crop'))
             lines_dir = ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'lines'))
+            mask_dir = ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'mask'))
 
             image = copy.deepcopy(image)
             # w = 1280 # image.shape[1] # 1280
@@ -288,7 +309,7 @@ class BoxProcessor:
                 refine_net=None, #self.refine_net,
                 text_threshold=0.7,
                 link_threshold=0.3,
-                low_text=0.4,
+                low_text=0.5,
                 cuda=self.cuda,
                 poly=True,
                 canvas_size = w + w // 2, 
@@ -312,7 +333,7 @@ class BoxProcessor:
                 poly = region.reshape((-1, 1, 2))
                 box = cv2.boundingRect(poly)
                 box = np.array(box).astype(np.int32)
-                x,y,w,h = box
+                x, y, w, h = box
                 box_line = [0, y, img_w, h]
                 box_line = np.array(box_line).astype(np.int32)
                 all_box_lines.append(box_line)
@@ -376,7 +397,6 @@ class BoxProcessor:
 
             cv2.imwrite(os.path.join(lines_dir, "%s-line.png" % (id)), img_line)
 
-            # raise Exception('EX')
             # refine lines as there could be lines that overlap
             print(f'***** Line candidates size {len(lines)}')
 
@@ -441,17 +461,54 @@ class BoxProcessor:
             fragments = []
             ms = int(time.time() * 1000)
 
+            max_h = image.shape[0]
+            max_w = image.shape[1]
+            
             for idx, region in enumerate(regions):
                 region = np.array(region).astype(np.int32).reshape((-1))
                 region = region.reshape(-1, 2)
                 poly = region.reshape((-1, 1, 2))
-
                 box = cv2.boundingRect(poly)
                 box = np.array(box).astype(np.int32)
+
+                if True and len(poly) == 4:
+                    hexp = 4
+                    vexp = 4
+                    box = [max(0, box[0]-hexp // 2), max(0, box[1] -
+                                                         vexp // 2), min(max_w, box[2]+hexp), min(max_h, box[3]+vexp)]
+                    poly_exp = [
+                        [[box[0], box[1]]],
+                        [[box[0]+box[2],box[1]]],
+                        [[box[0]+box[2],box[1]+box[3]]],
+                        [[box[0],box[1]+box[3]]],
+                    ]
+                    poly = np.array(poly_exp)
+
                 x,y,w,h = box
                 snippet = crop_poly_low(image, poly)
 
-                # try to figure out line number
+                # apply connected component analysis to determine if the image is touching the borders and if so expand them
+                if False:                    
+                    gray = cv2.cvtColor(snippet, cv2.COLOR_BGR2GRAY)
+                    nLabels, labels, stats, centroids = cv2.connectedComponentsWithStats(gray.astype(np.uint8), connectivity=4)
+                    # initialize an output mask to store all characters
+                    mask = np.zeros(gray.shape, dtype="uint8")
+                    print(f'nLabels : {nLabels}')
+                    for i in range(1, nLabels):
+                        # extract the connected component statistics for the current label
+                        x = stats[i, cv2.CC_STAT_LEFT]
+                        y = stats[i, cv2.CC_STAT_TOP]
+                        w = stats[i, cv2.CC_STAT_WIDTH]
+                        h = stats[i, cv2.CC_STAT_HEIGHT]
+                        area = stats[i, cv2.CC_STAT_AREA]
+                        componentMask = (labels == i).astype("uint8") * 255
+                        mask = cv2.bitwise_or(mask, componentMask)
+                        print(f'component x/y : {x}, {y}, {w}, {h}')
+
+                    # export cropped region
+                    file_path = os.path.join(mask_dir, "%s_%s.jpg" % (ms, idx))
+                    cv2.imwrite(file_path, mask)
+
                 _, line_indexes = find_overlap(box, lines)                
                 line_number = -1
                 if len(line_indexes) == 1:
