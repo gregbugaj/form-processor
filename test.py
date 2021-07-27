@@ -76,11 +76,12 @@ if __name__ == '__main__':
         processor = FormProcessor(work_dir=work_dir, config=config, cuda=False)
         # for name in glob.glob('/home/greg/dev/assets-private/27ofStateFarm100/*.tif'):
         # for name in glob.glob('/home/greg/dataset/data-hipa/forms/hcfa-allstate/270175_202006300007819_001.tif'):
-        for name in glob.glob('/home/greg/dataset/data-hipa/forms/hcfa-allstate/*.tif'):
+        # for name in glob.glob('/home/greg/dataset/data-hipa/forms/hcfa-allstate/*.tif'):
+        for name in glob.glob('/media/greg/XENSERVER-6/ImagesForPartAIssues/*.tif'):
             try:
                 print(name)
                 results = processor.process(name)
-                # break
+                break
             except Exception as ident:
                 print(ident)
 
@@ -124,12 +125,10 @@ if __name__ == '__main__':
             except Exception as ident:
                 print(ident)
 
-
     if False:
-
-        img_path='/home/greg/tmp/hicfa/PID_10_5_0_3112.original.tif'
-        img_path='/home/greg/tmp/hicfa/PID_10_5_0_3128.original.tif'
-        work_dir='/tmp/form-segmentation'
+        img_path = '/home/greg/tmp/hicfa/PID_10_5_0_3112.original.tif'
+        img_path = '/home/greg/tmp/hicfa/PID_10_5_0_3128.original.tif'
+        work_dir = '/tmp/form-segmentation'
 
         snippet = cv2.imread(img_path)
         boxer = BoxProcessor(work_dir, cuda=False)

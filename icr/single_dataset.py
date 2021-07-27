@@ -2,6 +2,7 @@ from PIL import Image
 import numpy as np
 from torch.utils.data import Dataset
 
+
 class SingleDataset(Dataset):
     def __init__(self, label, img, opt):
         self.opt = opt
@@ -31,7 +32,7 @@ class SingleDataset(Dataset):
                 else:
                     img = Image.new('L', (self.opt.imgW, self.opt.imgH))
 
-        elif type(image) == np.ndarray:            
+        elif type(image) == np.ndarray:
             img = Image.fromarray(image)
 
         if self.opt.rgb:
@@ -39,4 +40,4 @@ class SingleDataset(Dataset):
         else:
             img = img.convert('L')
 
-        return (img, label)
+        return img, label

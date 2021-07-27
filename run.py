@@ -251,18 +251,18 @@ class FormProcessor:
                 m0 = current_milli_time()
                 boxes, fragments, lines, _ = box_processor.extract_bounding_boxes(id, field, snippet)
                 m1 = current_milli_time()
-                log.info('[%s] [%s] Box processor time : %s(ms)', id, field, m1-m0)
+                log.info('[%s] [%s] Box processor time : %s(ms)', id, field, m1 - m0)
 
                 m0 = current_milli_time()
                 icr_results, icr_overlay = icr_processor.icr_extract(id, field, snippet, boxes, fragments, lines)
 
                 debug_dir = ensure_exists(os.path.join(work_dir, id, 'work_figures'))
-                save_path = os.path.join(debug_dir,  '%s.png' % (field))
-                visualize(imgpath = save_path, snippet=snippet_margin, cleaned=snippet, icr=icr_overlay)
+                save_path = os.path.join(debug_dir, '%s.png' % (field))
+                visualize(imgpath=save_path, snippet=snippet_margin, cleaned=snippet, icr=icr_overlay)
 
                 m1 = current_milli_time()
-                log.info('[%s] [%s] ICR processor time : %s(ms)', id, field, m1-m0)
-                log.info('[%s] [%s] Field eval time : %s(ms)', id, field, m1-s)
+                log.info('[%s] [%s] ICR processor time : %s(ms)', id, field, m1 - m0)
+                log.info('[%s] [%s] Field eval time : %s(ms)', id, field, m1 - s)
             except Exception as ident:
                 failed = True
                 print(f'Field failed : {field}')
