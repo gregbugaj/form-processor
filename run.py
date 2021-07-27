@@ -254,7 +254,7 @@ class FormProcessor:
                 log.info('[%s] [%s] Box processor time : %s(ms)', id, field, m1 - m0)
 
                 m0 = current_milli_time()
-                icr_results, icr_overlay = icr_processor.icr_extract(id, field, snippet, boxes, fragments, lines)
+                icr_results, icr_overlay = icr_processor.recognize(id, field, snippet, boxes, fragments, lines)
 
                 debug_dir = ensure_exists(os.path.join(work_dir, id, 'work_figures'))
                 save_path = os.path.join(debug_dir, '%s.png' % (field))

@@ -1,8 +1,12 @@
 # Add parent to the search path so we can reference the modules(craft, pix2pix) here without throwing and exception 
-import os, sys
+import os
+import sys
+
+from icr.memory_dataset import MemoryDataset
 
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
 
+import typing
 import numpy as np
 import json
 import copy
@@ -245,46 +249,67 @@ class IcrProcessor:
 
         return converter, model
 
-    def extract_text(self, id, key, image):
+    def extract_text(self, _id, key, image):
         """Recognize text from a single image.
            Process image via ICR, this is lowlever API, to get more usable results call extract_icr.
 
         Args:
-            id: Unique Image ID
+            _id: Unique Image ID
             key: Unique image key
             image: A pre-cropped image containing characters
         """
 
-        print('ICR processing : {}, {}'.format(id, key))
+        print('ICR processing : {}, {}'.format(_id, key))
+        results = self.recognize_from_boxes([image], [0, 0, image.shape[1], image.shape[0]])
+        if len(results) == 1:
+            r = results[0]
+            return r['text'], r['confidence']
+        return None, 0
+
+    def recognize_from_boxes(self, image, boxes, **kwargs) -> typing.List[typing.Dict[str, any]]:
+        """Recognize text from image using lists of bounding boxes.
+
+        Args:
+            image: input images, supplied as numpy arrays with shape
+                (H, W, 3).
+            boxes: A list of boxes to extract
+        """
+        raise Exception("Not yet implemented")
+
+    def recognize_from_fragments(self, images, **kwargs) -> typing.List[typing.Dict[str, any]]:
+        """Recognize text from image fragments
+
+        Args:
+            images: A list of input images, supplied as numpy arrays with shape
+                (H, W, 3).
+        """
+
+        print('recognize_from_boxes via boxes')
+        print('ICR processing : {}'.format(id))
         # debug_dir =  ensure_exists(os.path.join(self.work_dir,id,'icr',key,'debug'))
         # output_dir = ensure_exists(os.path.join(self.work_dir,id,'icr',key,'output'))
 
         opt = self.opt
         model = self.model
         converter = self.converter
-        confidence_score = 0.0
-        txt = ''
-
-        # Convert color to grayscale
-        # After normalization image is in 0-1 range  so scale it up to 0-255      
-        image = cv2.cvtColor(image, code=cv2.COLOR_RGB2GRAY)
-        image = image.astype("float32") / 255
-        image = (image * 255).astype(np.uint8)
+        opt.batch_size = 192  #
 
         # setup data
-        # Fixme: setting batch size to 1 will cause "TypeError: forward() missing 2 required positional arguments: 'input' and 'text'"
         AlignCollate_data = AlignCollate(imgH=opt.imgH, imgW=opt.imgW, keep_ratio_with_pad=opt.PAD)
-        eval_data = SingleDataset(label=f'{id}-{key}', img=image, opt=opt)
+        eval_data = MemoryDataset(images=images, opt=opt)
+
         eval_loader = torch.utils.data.DataLoader(
             eval_data, batch_size=opt.batch_size,
             shuffle=False,
             num_workers=int(opt.workers),
             collate_fn=AlignCollate_data, pin_memory=True)
 
+        results = []
         # predict
         model.eval()
         with torch.no_grad():
             for image_tensors, image_labels in eval_loader:
+                print(f'OCR : {image_labels}')
                 batch_size = image_tensors.size(0)
                 image = image_tensors.to(device)
 
@@ -294,7 +319,6 @@ class IcrProcessor:
 
                 if 'CTC' in opt.Prediction:
                     preds = model(image, text_for_pred)
-
                     # Select max probabilty (greedy decoding) then decode index to character
                     preds_size = torch.IntTensor([preds.size(1)] * batch_size)
                     _, preds_index = preds.max(2)
@@ -316,7 +340,6 @@ class IcrProcessor:
 
                 preds_prob = F.softmax(preds, dim=2)
                 preds_max_prob, _ = preds_prob.max(dim=2)
-                # FIXME: setting batch size to 1 will cause "TypeError: forward() missing 2 required positional arguments: 'input' and 'text'"
 
                 for img_name, pred, pred_max_prob in zip(image_labels, preds_str, preds_max_prob):
                     if 'Attn' in opt.Prediction:
@@ -326,29 +349,31 @@ class IcrProcessor:
 
                     # calculate confidence score (= multiply of pred_max_prob)
                     confidence_score = pred_max_prob.cumprod(dim=0)[-1]
+                    # get value from the TensorFloat
+                    confidence = confidence_score.item()
                     txt = pred
+                    results.append({
+                        "confidence": confidence,
+                        "text": txt,
+                        "id": img_name
+                    })
+
                     print(f'{img_name:25s}\t{pred:32s}\t{confidence_score:0.4f}')
                     log.write(f'{img_name:25s}\t{pred:32s}\t{confidence_score:0.4f}\n')
-
-                    # FIXME: setting batch size to 1 will cause "TypeError: forward() missing 2 required positional arguments: 'input' and 'text'"
-                    break
-
                 log.close()
 
-        # get value from the TensorFloat
-        confidence = confidence_score.item()
-        return txt, confidence
+        return results
 
-    def icr_extract(self, id, key, img, boxes, fragments, lines):
+    def recognize(self, id, key, img, boxes, image_fragments, lines):
         """Recognize text from multiple images.
-
         Args:
             id: Unique Image ID
-            key: Unique image key
+            key: Unique image key/region for the extraction
             img: A pre-cropped image containing characters
         """
         print('ICR : {}'.format(id))
         print('shape : {}'.format(img.shape))
+        assert len(boxes) == len(image_fragments), "You must provide the same number of box groups as images."
 
         shape = img.shape
         overlay_image = np.ones((shape[0], shape[1], 3), dtype=np.uint8) * 255
@@ -362,10 +387,14 @@ class IcrProcessor:
 
         words = []
         max_line_number = 0
+        results = self.recognize_from_fragments(image_fragments)
 
         for i in range(len(boxes)):
-            box, fragment, line = boxes[i], fragments[i], lines[i]
-            txt, confidence = self.extract_text(id, str(i), fragment)
+            box, fragment, line = boxes[i], image_fragments[i], lines[i]
+            # txt, confidence = self.extract_text(id, str(i), fragment)
+            extraction = results[i]
+            txt = extraction['text']
+            confidence = extraction['confidence']
             print('Processing [box, line, txt, conf] : {}, {}, {}, {}'.format(box, line, txt, confidence))
             conf_label = f'{confidence:0.4f}'
             txt_label = txt

@@ -66,9 +66,9 @@ if __name__ == '__main__':
         boxes, img_fragments, lines, _= boxer.extract_bounding_boxes(id, 'field', snippet)
 
         icr = IcrProcessor(work_dir)
-        icr.icr_extract(id, key, snippet, boxes, img_fragments, lines)
+        icr.recognize(id, key, snippet, boxes, img_fragments, lines)
 
-    if True:
+    if False:
         config_path = 'config-single.json'
         with open(config_path) as f:
             config = json.load(f)
@@ -77,7 +77,7 @@ if __name__ == '__main__':
         # for name in glob.glob('/home/greg/dev/assets-private/27ofStateFarm100/*.tif'):
         # for name in glob.glob('/home/greg/dataset/data-hipa/forms/hcfa-allstate/270175_202006300007819_001.tif'):
         # for name in glob.glob('/home/greg/dataset/data-hipa/forms/hcfa-allstate/*.tif'):
-        for name in glob.glob('/media/greg/XENSERVER-6/ImagesForPartAIssues/*.tif'):
+        for name in glob.glob('/media/greg/XENSERVER-6/ImagesForPartAIssues/PID_10_5_0_155085.tif'):
             try:
                 print(name)
                 results = processor.process(name)
@@ -95,7 +95,7 @@ if __name__ == '__main__':
         icr = IcrProcessor(work_dir)
         boxer = BoxProcessor(work_dir, cuda=False)
         boxes, img_fragments, lines, _= boxer.extract_bounding_boxes(id, 'field', snippet)
-        icr.icr_extract(id, 'HCFA05_PHONE', snippet, boxes, img_fragments, lines)
+        icr.recognize(id, 'HCFA05_PHONE', snippet, boxes, img_fragments, lines)
 
 
     if False:
