@@ -126,7 +126,7 @@ class FieldProcessor:
         self.models = models
         self.store = {}
 
-    def __process_pix2pix(self, key:str, id, snippet, opt, model, config) -> None:
+    def __process_pix2pix(self, key: str, id, snippet, opt, model, config) -> np.ndarray:
         """process pix2pix form cleanup"""
         name = 'segmenation'
         debug_dir = ensure_exists(os.path.join(self.work_dir, id, 'fields_debug', key))
@@ -153,10 +153,10 @@ class FieldProcessor:
 
             return image_numpy
 
-        return None    
-    
-    def __process_smp(self, key:str, id:str, snippet, opt, model, config) -> None:
-        """processing via SMP model"""        
+        return None
+
+    def __process_smp(self, key: str, id: str, snippet, opt, model, config) -> np.ndarray:
+        """processing via SMP model"""
 
         debug_dir = ensure_exists(os.path.join(self.work_dir, id, 'figures'))
 
@@ -184,7 +184,7 @@ class FieldProcessor:
             Return:
                 transform: albumentations.Compose
             """
-            
+
             _transform = [
                 albu.Lambda(image=preprocessing_fn),
                 albu.Lambda(image=to_tensor),
@@ -211,15 +211,14 @@ class FieldProcessor:
         pr_mask = np.array(pr_mask).astype(np.uint8)
         # h = pr_mask.shape[1]
         # debug_img = get_debug_image(h, w, image_src, pr_mask)
-        
         pr_mask = cv2.cvtColor(pr_mask, cv2.COLOR_RGB2BGR)
 
-        save_path = os.path.join(debug_dir,  '%s.png' % (key))
-        visualize(imgpath = save_path, image=snippet, predicted=pr_mask)
+        save_path = os.path.join(debug_dir, '%s.png' % (key))
+        visualize(imgpath=save_path, image=snippet, predicted=pr_mask)
 
         return pr_mask
 
-    def process(self, id, key, snippet)->None:
+    def process(self, id, key, snippet) -> np.ndarray:
         """
             Process data field
         """
@@ -276,7 +275,6 @@ class FieldProcessor:
         imwrite(os.path.join(debug_dir, image_name), image_numpy)
         imwrite(os.path.join(fields_clean_aggro_dir, '%s.png' % (id)), image_numpy)
         imwrite(os.path.join(fields_debug_aggro_dir, '%s.png' % (id)), debug_img)
-
 
         return image_numpy
 

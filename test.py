@@ -66,9 +66,9 @@ if __name__ == '__main__':
         boxes, img_fragments, lines, _= boxer.extract_bounding_boxes(id, 'field', snippet)
 
         icr = IcrProcessor(work_dir)
-        icr.icr_extract(id, key, snippet, boxes, img_fragments, lines)
+        icr.recognize(id, key, snippet, boxes, img_fragments, lines)
 
-    if True:
+    if False:
         config_path = 'config-single.json'
         with open(config_path) as f:
             config = json.load(f)
@@ -76,11 +76,12 @@ if __name__ == '__main__':
         processor = FormProcessor(work_dir=work_dir, config=config, cuda=False)
         # for name in glob.glob('/home/greg/dev/assets-private/27ofStateFarm100/*.tif'):
         # for name in glob.glob('/home/greg/dataset/data-hipa/forms/hcfa-allstate/270175_202006300007819_001.tif'):
-        for name in glob.glob('/home/greg/dataset/data-hipa/forms/hcfa-allstate/*.tif'):
+        # for name in glob.glob('/home/greg/dataset/data-hipa/forms/hcfa-allstate/*.tif'):
+        for name in glob.glob('/media/greg/XENSERVER-6/ImagesForPartAIssues/PID_10_5_0_155085.tif'):
             try:
                 print(name)
                 results = processor.process(name)
-                # break
+                break
             except Exception as ident:
                 print(ident)
 
@@ -94,7 +95,7 @@ if __name__ == '__main__':
         icr = IcrProcessor(work_dir)
         boxer = BoxProcessor(work_dir, cuda=False)
         boxes, img_fragments, lines, _= boxer.extract_bounding_boxes(id, 'field', snippet)
-        icr.icr_extract(id, 'HCFA05_PHONE', snippet, boxes, img_fragments, lines)
+        icr.recognize(id, 'HCFA05_PHONE', snippet, boxes, img_fragments, lines)
 
 
     if False:
@@ -124,12 +125,10 @@ if __name__ == '__main__':
             except Exception as ident:
                 print(ident)
 
-
     if False:
-
-        img_path='/home/greg/tmp/hicfa/PID_10_5_0_3112.original.tif'
-        img_path='/home/greg/tmp/hicfa/PID_10_5_0_3128.original.tif'
-        work_dir='/tmp/form-segmentation'
+        img_path = '/home/greg/tmp/hicfa/PID_10_5_0_3112.original.tif'
+        img_path = '/home/greg/tmp/hicfa/PID_10_5_0_3128.original.tif'
+        work_dir = '/tmp/form-segmentation'
 
         snippet = cv2.imread(img_path)
         boxer = BoxProcessor(work_dir, cuda=False)
