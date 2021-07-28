@@ -155,7 +155,6 @@ def get_prediction(craft_net, image, text_threshold, link_threshold, low_text, c
     if cuda:
         x = x.cuda()
 
-
     # forward pass
     with torch.no_grad():
         y, feature = net(x)
@@ -225,8 +224,8 @@ class BoxProcessor:
     def __load(self):
         # load models
         args = Object()
-        args.trained_model='./models/craft/craft_mlt_25k.pth'
-        args.refiner_model='./models/craft/craft_refiner_CTW1500.pth'
+        args.trained_model = './models/craft/craft_mlt_25k.pth'
+        args.refiner_model = './models/craft/craft_refiner_CTW1500.pth'
 
         cuda = self.cuda
         refine = True
@@ -267,16 +266,16 @@ class BoxProcessor:
         return net, refine_net
 
     def extract_bounding_boxes(self, id, key, image):
-        """Extrac bouding boxes for specific image, try to predict line number representin each bouding box. 
+        """Extract bounding boxes for specific image, try to predict line number representing each bounding box.
 
         Args:
             id: Unique Image ID
             key: Unique image key
             image: A pre-cropped image containing characters
         Return:            
-            box array, fragment array, line_number array,  prediciton results
+            box array, fragment array, line_number array,  prediction results
         """
-        print('Extracting bounding boxes : {}, {}'.format(id, key))
+        print('Extracting bounding boxes : {}, {}'.format(key, id))
         
         try:
             debug_dir = ensure_exists(os.path.join(self.work_dir,id,'bounding_boxes', key, 'debug'))
@@ -287,33 +286,24 @@ class BoxProcessor:
             image = copy.deepcopy(image)
             # w = 1280 # image.shape[1] # 1280
             w = image.shape[1] # 1280
-
-            def compute_input(image):                
-                # should be RGB order
-                image = image.astype('float32')
-                mean = np.array([0.485, 0.456, 0.406])
-                variance = np.array([0.229, 0.224, 0.225])
-
-                image -= mean * 255
-                image /= variance * 255
-                return image
-
-            # Processin box detection on normalized inmage
-            image_norm = compute_input(image)        
-            image_norm = image
+            # Invertint the image makes box detection substancially better
+            image_norm = 255 - image
             cv2.imwrite(os.path.join('/tmp/icr/fields/', key, "NORM_%s.png" % (id)), image_norm)
+            # TODO : Externalize as config
 
             bboxes, polys, score_text = get_prediction(
                 image=image_norm,
                 craft_net=self.craft_net,
-                refine_net=None, #self.refine_net,
-                text_threshold=0.7,
-                link_threshold=0.3,
-                low_text=0.5,
+                refine_net=None,  # self.refine_net,
+                text_threshold=0.5,
+                link_threshold=0.4,
+                low_text=0.3,
                 cuda=self.cuda,
-                poly=True,
-                canvas_size = w + w // 2, 
-                mag_ratio=1 #1.5
+                poly=False,
+                # canvas_size=1280,#w + w // 2,
+                canvas_size=w,
+                # canvas_size=w + w // 2,
+                mag_ratio=1
             )
             
             prediction_result = dict()
@@ -343,8 +333,8 @@ class BoxProcessor:
             all_box_lines = np.array(all_box_lines)
             if len(all_box_lines) == 0:
                 return [], [], [], None
-                
-            y1 = all_box_lines[:,1]
+
+            y1 = all_box_lines[:, 1]
 
             # sort boxes by the  y-coordinate of the bounding box
             idxs = np.argsort(y1)
