@@ -109,6 +109,7 @@ def seed_everything(seed=2**3):
     random.seed(seed)
     torch.backends.cudnn.deterministic = True
 
+
 def build_model(args, device, device_ids=[0,1], ckpt=None):
     print('==> Building model..')
 
@@ -172,7 +173,7 @@ def build_dataset(data_dir, pad_size, crop_size):
         size=pad_size
     )
 
-    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=8)
+    train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=8)
     valid_loader = DataLoader(valid_dataset, batch_size=1, shuffle=False, num_workers=4)
 
     # #### Visualize resulted augmented images and masks
@@ -283,6 +284,7 @@ def main():
 
     # HCFA04
     data_dir = '/home/greg/dev/unet-denoiser/data_HCFA24NoText'
+    data_dir = '/home/greg/dev/unet-denoiser/data_HCFA24NoText-MASK'
     pad_size = (2048, 512) # WxH
     crop_size = (256, 128)
     # crop_size = (128, 128)
@@ -303,10 +305,11 @@ def main():
         best_acc = 0
         start_epoch = -1
 
+    net = torch.load('./best_model.pth')
     # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA02/best_model.pth')
     # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA21/best_model.pth')
     # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA21/best_model.pth')#  map_location={'cuda:0':'cuda:0'}
-    net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA24/best_model.pth')#  map_location={'cuda:0':'cuda:0'}
+    # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA24/best_model.pth')#  map_location={'cuda:0':'cuda:0'}
 
     # net = build_model(args, device, device_ids=[0], ckpt=ckpt)
     summary(net)
