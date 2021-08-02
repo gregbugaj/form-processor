@@ -44,18 +44,19 @@ def get_training_augmentation(pad_size, crop_size):
         # albu.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.2, rotate_limit=5, p=0.5, border_mode=cv2.BORDER_CONSTANT, always_apply=False),
         # albu.ImageCompression(6, 10, p=0.5, always_apply=False),
         # CoarseDropout
-        # albu.PadIfNeeded(min_height=pad_size[1], min_width=pad_size[0], always_apply=True, border_mode=0),
+
+        albu.PadIfNeeded(min_height=pad_size[1], min_width=pad_size[0], always_apply=True, border_mode=0),
         albu.RandomCrop(height=crop_size[1], width=crop_size[0], always_apply=True),
     ]
     
     return albu.Compose(train_transform)
 
-def get_validation_augmentation(pad_size):
+def get_validation_augmentation(pad_size, crop_size):
     """Add paddings to make image shape divisible by 32"""
 
     test_transform = [
-        # albu.PadIfNeeded(min_height=pad_size[1], min_width=pad_size[0], always_apply=True, border_mode=0),
-        albu.RandomCrop(height=256, width=256, always_apply=True),
+        albu.PadIfNeeded(min_height=pad_size[1], min_width=pad_size[0], always_apply=True, border_mode=0),
+        albu.RandomCrop(height=crop_size[1], width=crop_size[0], always_apply=True),
     ]
 
     return albu.Compose(test_transform)
@@ -95,7 +96,6 @@ def visualize(**images):
     plt.show()
 
 preprocessing_fn = smp.encoders.get_preprocessing_fn(ENCODER, ENCODER_WEIGHTS)
-# preprocessing_fn = smp.encoders.get_preprocessing_fn(ENCODER)
 
 metrics = [
     smp.utils.metrics.IoU(threshold=0.5),
@@ -115,15 +115,21 @@ def build_model(args, device, device_ids=[0,1], ckpt=None):
 
     net = smp.UnetPlusPlus(
         encoder_name=ENCODER, 
-        encoder_weights=ENCODER_WEIGHTS, 
+        encoder_weights=None, #ENCODER_WEIGHTS, 
         classes=len(CLASSES), 
         activation=ACTIVATION,
         decoder_attention_type='scse',
         decoder_use_batchnorm = True,
-        # decoder_channels= (1024, 512, 256, 128, 64),
-        # decoder_channels= (512, 256, 128, 64, 32),
-        # in_channels=1,
     )
+    
+    print('DeepLabV3Plus')
+    # net = smp.DeepLabV3Plus(
+    #     encoder_name=ENCODER, 
+    #     encoder_weights=None, #ENCODER_WEIGHTS, 
+    #     classes=len(CLASSES), 
+    #     decoder_channels=512, 
+    #     activation=ACTIVATION,
+    # )
 
     net = net.to(device)
 
@@ -167,13 +173,13 @@ def build_dataset(data_dir, pad_size, crop_size):
     valid_dataset = Dataset(
         x_valid_dir, 
         y_valid_dir, 
-        augmentation=get_validation_augmentation(pad_size=pad_size), 
+        augmentation=get_validation_augmentation(pad_size=pad_size, crop_size=crop_size), 
         preprocessing=get_preprocessing(preprocessing_fn),
         classes=CLASSES,
         size=pad_size
     )
 
-    train_loader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=8)
+    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=8)
     valid_loader = DataLoader(valid_dataset, batch_size=1, shuffle=False, num_workers=4)
 
     # #### Visualize resulted augmented images and masks
@@ -274,7 +280,7 @@ def main():
 
     args.optim = 'adabound'
     args.optim = 'adamw'
-    args.lr = 1e-4
+    args.lr = 1e-5
     args.final_lr = 0.1
     args.gamma = 0.001
     args.resume = False
@@ -286,8 +292,14 @@ def main():
     data_dir = '/home/greg/dev/unet-denoiser/data_HCFA24NoText'
     data_dir = '/home/greg/dev/unet-denoiser/data_HCFA24NoText-MASK'
     pad_size = (2048, 512) # WxH
-    crop_size = (256, 128)
-    # crop_size = (128, 128)
+    crop_size = (256, 128)    
+    
+    # Diagnosis
+    # 0.9967940412759763
+    # 0.9974251212179664
+    data_dir = '/home/greg/dev/unet-denoiser/data_diagnosis_code'
+    pad_size = (1536, 512) # WxH
+    crop_size = (256, 256)
 
     train_loader, test_loader = build_dataset(data_dir, pad_size, crop_size)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -305,13 +317,16 @@ def main():
         best_acc = 0
         start_epoch = -1
 
-    net = torch.load('./best_model.pth')
+    # net = torch.load('./best_model.pth')
+    # net = torch.load('./best_model@0.9975503150671723.pth')
+    net = torch.load('./best_model@0.9978077199012058.pth')
     # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA02/best_model.pth')
     # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA21/best_model.pth')
     # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA21/best_model.pth')#  map_location={'cuda:0':'cuda:0'}
     # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA24/best_model.pth')#  map_location={'cuda:0':'cuda:0'}
 
-    # net = build_model(args, device, device_ids=[0], ckpt=ckpt)
+
+    # net = build_model(args, device, device_ids=[0, 1], ckpt=ckpt)
     summary(net)
     loss = CustomLoss()
     loss._name = 'custom_loss'

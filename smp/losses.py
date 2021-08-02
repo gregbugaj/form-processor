@@ -46,6 +46,7 @@ class CustomLoss(nn.Module):
         dice_loss = self.dice_loss(inputs, targets)
         focal_loss = self.focal_loss(inputs, targets)
         # criterion = dice_loss + (1 * focal_loss)
+        # criterion = dice_loss + (1 * focal_loss)
         criterion = dice_loss + (1 * focal_loss)
                        
         return criterion        

@@ -145,7 +145,7 @@ class Dataset(BaseDataset):
             mask = resize_image(maks_resized, (h, w))
         else:
             image = resize_image(image, (h, w))
-            mask = resize_image(mask, (h, w), color=(0, 0, 0))
+            mask = resize_image(mask, (h, w), color=(255, 255, 255))
             # image = cv2.resize(image, (w, h), interpolation = cv2.INTER_AREA)
             # mask = cv2.resize(mask, (w, h), interpolation = cv2.INTER_AREA)
  
@@ -172,4 +172,4 @@ class Dataset(BaseDataset):
         return image, mask
 
     def __len__(self):
-        return len(self.ids_a) #// 4
+        return len(self.ids_a) # // 4
