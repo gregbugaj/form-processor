@@ -68,25 +68,29 @@ if __name__ == '__main__':
         icr = IcrProcessor(work_dir)
         icr.recognize(id, key, snippet, boxes, img_fragments, lines)
 
-    if False:
+    if True:
         config_path = 'config-single.json'
         with open(config_path) as f:
             config = json.load(f)
 
         processor = FormProcessor(work_dir=work_dir, config=config, cuda=False)
-        # for name in glob.glob('/home/greg/dev/assets-private/27ofStateFarm100/*.tif'):
+        for name in glob.glob('/home/greg/dev/assets-private/27ofStateFarm100/*.tif'):
         # for name in glob.glob('/home/greg/dataset/data-hipa/forms/hcfa-allstate/270175_202006300007819_001.tif'):
         # for name in glob.glob('/home/greg/dataset/data-hipa/forms/hcfa-allstate/*.tif'):
-        for name in glob.glob('/media/greg/XENSERVER-6/ImagesForPartAIssues/PID_10_5_0_155085.tif'):
+        # for name in glob.glob('/media/greg/XENSERVER-6/ImagesForPartAIssues/PID_10_5_0_155085.tif'):
             try:
                 print(name)
                 results = processor.process(name)
-                break
+                # break
             except Exception as ident:
                 print(ident)
 
     if False:
-        img_path='/tmp/form-segmentation/272944_0031516168976_001.tif/fields_debug/HCFA02/segmenation_real.png'
+        img_path = '/media/greg/XENSERVER-6/models-prod/bounding-boxes/PID_10_5_0_155085.tif.png'
+        img_path = '/tmp/form-segmentation/samples/001.png'
+
+        if not os.path.exists(img_path):
+            raise Exception(f'File not found : {img_path}')
 
         id = img_path.split('/')[-1]
         debug_dir = ensure_exists(os.path.join(work_dir, id, 'work'))
@@ -94,9 +98,8 @@ if __name__ == '__main__':
 
         icr = IcrProcessor(work_dir)
         boxer = BoxProcessor(work_dir, cuda=False)
-        boxes, img_fragments, lines, _= boxer.extract_bounding_boxes(id, 'field', snippet)
-        icr.recognize(id, 'HCFA05_PHONE', snippet, boxes, img_fragments, lines)
-
+        boxes, img_fragments, lines, _ = boxer.extract_bounding_boxes(id, 'field', snippet)
+        # icr.recognize(id, 'HCFA05_PHONE', snippet, boxes, img_fragments, lines)
 
     if False:
         work_dir='/tmp/form-segmentation'

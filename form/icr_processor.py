@@ -398,6 +398,7 @@ class IcrProcessor:
             print('Processing [box, line, txt, conf] : {}, {}, {}, {}'.format(box, line, txt, confidence))
             conf_label = f'{confidence:0.4f}'
             txt_label = txt
+
             payload = dict()
             payload['id'] = i
             payload['text'] = txt
