@@ -110,7 +110,7 @@ def seed_everything(seed=2**3):
     torch.backends.cudnn.deterministic = True
 
 
-def build_model(args, device, device_ids=[0,1], ckpt=None):
+def build_model(args, device, device_ids=[0], ckpt=None):
     print('==> Building model..')
 
     net = smp.UnetPlusPlus(
@@ -122,7 +122,6 @@ def build_model(args, device, device_ids=[0,1], ckpt=None):
         decoder_use_batchnorm = True,
     )
     
-    print('DeepLabV3Plus')
     # net = smp.DeepLabV3Plus(
     #     encoder_name=ENCODER, 
     #     encoder_weights=None, #ENCODER_WEIGHTS, 
@@ -179,7 +178,7 @@ def build_dataset(data_dir, pad_size, crop_size):
         size=pad_size
     )
 
-    train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=8)
+    train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True, num_workers=8)
     valid_loader = DataLoader(valid_dataset, batch_size=1, shuffle=False, num_workers=4)
 
     # #### Visualize resulted augmented images and masks
@@ -280,7 +279,7 @@ def main():
 
     args.optim = 'adabound'
     args.optim = 'adamw'
-    args.lr = 1e-5
+    args.lr = 1e-4
     args.final_lr = 0.1
     args.gamma = 0.001
     args.resume = False
@@ -297,7 +296,7 @@ def main():
     # Diagnosis
     # 0.9967940412759763
     # 0.9974251212179664
-    data_dir = '/home/greg/dev/unet-denoiser/data_diagnosis_code'
+    data_dir = '/home/greg/dev/unet-denoiser/data_data_HCFA24DiagnosisCode'
     pad_size = (1536, 512) # WxH
     crop_size = (256, 256)
 
@@ -317,16 +316,21 @@ def main():
         best_acc = 0
         start_epoch = -1
 
-    # net = torch.load('./best_model.pth')
+    net = torch.load('./best_model.pth')
     # net = torch.load('./best_model@0.9975503150671723.pth')
-    net = torch.load('./best_model@0.9978077199012058.pth')
+    # net = torch.load('./best_model@0.9978077199012058.pth')
+
+    # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA21/best_model@0.9978700066655877.pth', map_location={'cuda:0':'cuda:0'})
+
     # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA02/best_model.pth')
     # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA21/best_model.pth')
     # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA21/best_model.pth')#  map_location={'cuda:0':'cuda:0'}
     # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA24/best_model.pth')#  map_location={'cuda:0':'cuda:0'}
 
+    # net = build_model(args, device, device_ids=[0], ckpt=ckpt)
+    # print(__net.module.state_dict())
+    # net.load_state_dict(__net.module.state_dict())
 
-    # net = build_model(args, device, device_ids=[0, 1], ckpt=ckpt)
     summary(net)
     loss = CustomLoss()
     loss._name = 'custom_loss'
