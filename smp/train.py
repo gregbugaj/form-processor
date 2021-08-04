@@ -274,6 +274,10 @@ def summary(net):
     print(f'Total number of parameters : {total_params}')
 
 def main():
+    
+    print('torch version')
+    print(torch.__version__)
+
     parser = get_parser()
     args = parser.parse_args()
 
@@ -294,9 +298,9 @@ def main():
     crop_size = (256, 128)    
     
     # Diagnosis
-    # 0.9967940412759763
-    # 0.9974251212179664
-    data_dir = '/home/greg/dev/unet-denoiser/data_data_HCFA24DiagnosisCode'
+    # 9978700066655877
+    data_dir = '/home/greg/dev/unet-denoiser/data_HCFA21'
+    # data_dir = '/home/greg/dev/unet-denoiser/data'
     pad_size = (1536, 512) # WxH
     crop_size = (256, 256)
 
@@ -316,17 +320,12 @@ def main():
         best_acc = 0
         start_epoch = -1
 
+    # net = torch.load('./best_model@0.9978700066655877.pth')
     net = torch.load('./best_model.pth')
     # net = torch.load('./best_model@0.9975503150671723.pth')
     # net = torch.load('./best_model@0.9978077199012058.pth')
 
     # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA21/best_model@0.9978700066655877.pth', map_location={'cuda:0':'cuda:0'})
-
-    # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA02/best_model.pth')
-    # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA21/best_model.pth')
-    # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA21/best_model.pth')#  map_location={'cuda:0':'cuda:0'}
-    # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA24/best_model.pth')#  map_location={'cuda:0':'cuda:0'}
-
     # net = build_model(args, device, device_ids=[0], ckpt=ckpt)
     # print(__net.module.state_dict())
     # net.load_state_dict(__net.module.state_dict())
