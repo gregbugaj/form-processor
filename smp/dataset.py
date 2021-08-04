@@ -141,26 +141,46 @@ class Dataset(BaseDataset):
             mask = resize_image(mask, (h, w), color=(255, 255, 255))
             # image = cv2.resize(image, (w, h), interpolation = cv2.INTER_AREA)
             # mask = cv2.resize(mask, (w, h), interpolation = cv2.INTER_AREA)
- 
-        # extract certain classes from mask (e.g. background)
-        masks = [(mask == 255)]
-        mask = np.stack(masks, axis=-1).astype('float')
+
+        if True:
+            # FIXME : Causes bolded artifacts
+            # stacking will cause unwanted artifacts, as we only deal with single channel this is OK for now        
+            # extract certain classes from mask (e.g. background)
+            masks = [(mask == 255)]
+            # dbg = get_debug_image(512,1536, mask, image)
+            # cv2.imwrite(f'/tmp/mask/{i}.png', dbg)
+            # cv2.imwrite(f'/tmp/mask/image_raw_{i}.png', image)
+            # cv2.imwrite(f'/tmp/mask/mask_raw_{i}.png', mask)
+            mask = np.stack(masks, axis=-1).astype('float')
+            # cv2.imwrite(f'/tmp/mask/mask_stacked_{i}.png', mask*255)
+        else:
+            masks = [mask]
+            mask = np.stack(masks, axis=-1).astype('float')
 
         # apply augmentations
         if self.augmentation:
             sample = self.augmentation(image=image, mask=mask)
             image, mask = sample['image'], sample['mask']
-        
+
+        # cv2.imwrite(f'/tmp/mask/image_augmentation_{i}.png', image)
+        # cv2.imwrite(f'/tmp/mask/mask_augmentation_{i}.png', mask * 255)
+
         # apply preprocessing
         if self.preprocessing:
             sample = self.preprocessing(image=image, mask=mask)
             image, mask = sample['image'], sample['mask']
 
+        # cv2.imwrite(f'/tmp/mask/image_preprocessing_{i}.png', image)
+        # cv2.imwrite(f'/tmp/mask/mask_preprocessing{i}.png', mask * 255)
+
         # print('image / mask')
         # print(image.shape)
         # print(mask.shape)
 
+        # cv2.imwrite(f'/tmp/mask/image_{i}.png', image)
+        # cv2.imwrite(f'/tmp/mask/mask_{i}.png', mask * 255)
+
         return image, mask
 
     def __len__(self):
-        return len(self.ids_a) # // 4
+        return len(self.ids_a) #// 10

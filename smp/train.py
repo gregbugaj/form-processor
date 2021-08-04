@@ -156,9 +156,12 @@ def build_dataset(data_dir, pad_size, crop_size):
     
     # Lets look at data we have
     if True:
+
         dataset = Dataset(x_train_dir, y_train_dir, size=pad_size)
         image, mask = dataset[3] # get some sample
         visualize(image=image, mask=mask.squeeze())
+
+    # raise Exception('Done')
 
     train_dataset = Dataset(
         x_train_dir, 
@@ -301,6 +304,7 @@ def main():
     # 9978700066655877
     data_dir = '/home/greg/dev/unet-denoiser/data_HCFA21'
     # data_dir = '/home/greg/dev/unet-denoiser/data'
+    # data_dir = '/home/greg/dev/unet-denoiser/data'
     pad_size = (1536, 512) # WxH
     crop_size = (256, 256)
 
@@ -322,11 +326,9 @@ def main():
 
     # net = torch.load('./best_model@0.9978700066655877.pth')
     net = torch.load('./best_model.pth')
-    # net = torch.load('./best_model@0.9975503150671723.pth')
-    # net = torch.load('./best_model@0.9978077199012058.pth')
-
-    # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA21/best_model@0.9978700066655877.pth', map_location={'cuda:0':'cuda:0'})
+    # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA21/best_model.pth')
     # net = build_model(args, device, device_ids=[0], ckpt=ckpt)
+
     # print(__net.module.state_dict())
     # net.load_state_dict(__net.module.state_dict())
 
