@@ -207,6 +207,7 @@ class FieldProcessor:
         pr_mask = (pr_mask.squeeze().cpu().numpy().round())
 
         # pr_mask = tensor2img(pr_mask) # normalized 
+        # invert the mask
         pr_mask = 255-pr_mask*255 # convert 0...1 range into 0...255 range
         pr_mask = np.array(pr_mask).astype(np.uint8)
         # h = pr_mask.shape[1]

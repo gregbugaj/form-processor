@@ -29,8 +29,9 @@ from losses import CustomLoss
 ENCODER = 'resnet34'
 ENCODER_WEIGHTS = 'imagenet'
 CLASSES = ['foreground']
-ACTIVATION = 'sigmoid' # could be None for logits or 'softmax2d' for multiclass segmentation
+ACTIVATION = 'sigmoid' # 'sigmoid' # could be None for logits or 'softmax2d' for multiclass segmentation
 DEVICE = 'cuda'
+
 
 def get_training_augmentation(pad_size, crop_size):
     """Training augmentation 
@@ -47,20 +48,27 @@ def get_training_augmentation(pad_size, crop_size):
 
         albu.PadIfNeeded(min_height=pad_size[1], min_width=pad_size[0], always_apply=True, border_mode=0),
         albu.RandomCrop(height=crop_size[1], width=crop_size[0], always_apply=True),
+
+        albu.OneOf(
+            [
+                albu.IAASharpen(p=1),
+                albu.Blur(blur_limit=3, p=1),
+                albu.MotionBlur(blur_limit=3, p=1),
+            ],
+            p=0.9,
+        ),
     ]
     
     return albu.Compose(train_transform)
 
 def get_validation_augmentation(pad_size, crop_size):
     """Add paddings to make image shape divisible by 32"""
-
     test_transform = [
         albu.PadIfNeeded(min_height=pad_size[1], min_width=pad_size[0], always_apply=True, border_mode=0),
-        albu.RandomCrop(height=crop_size[1], width=crop_size[0], always_apply=True),
+        albu.RandomCrop(height=crop_size[1]+crop_size[1]//2, width=crop_size[0]+crop_size[0]//2, always_apply=True),
     ]
 
     return albu.Compose(test_transform)
-
 
 def to_tensor(x, **kwargs):
     return x.transpose(2, 0, 1).astype('float32')
@@ -126,7 +134,6 @@ def build_model(args, device, device_ids=[0], ckpt=None):
     #     encoder_name=ENCODER, 
     #     encoder_weights=None, #ENCODER_WEIGHTS, 
     #     classes=len(CLASSES), 
-    #     decoder_channels=512, 
     #     activation=ACTIVATION,
     # )
 
@@ -156,7 +163,6 @@ def build_dataset(data_dir, pad_size, crop_size):
     
     # Lets look at data we have
     if True:
-
         dataset = Dataset(x_train_dir, y_train_dir, size=pad_size)
         image, mask = dataset[3] # get some sample
         visualize(image=image, mask=mask.squeeze())
@@ -291,9 +297,6 @@ def main():
     args.gamma = 0.001
     args.resume = False
 
-    # 0.9433866147994998
-    # custom_loss - 0.9466, iou_score - 0.9434, fscore - 0.9695
-
     # HCFA04
     data_dir = '/home/greg/dev/unet-denoiser/data_HCFA24NoText'
     data_dir = '/home/greg/dev/unet-denoiser/data_HCFA24NoText-MASK'
@@ -303,10 +306,10 @@ def main():
     # Diagnosis
     # 9978700066655877
     data_dir = '/home/greg/dev/unet-denoiser/data_HCFA21'
-    # data_dir = '/home/greg/dev/unet-denoiser/data'
-    # data_dir = '/home/greg/dev/unet-denoiser/data'
-    pad_size = (1536, 512) # WxH
-    crop_size = (256, 256)
+    data_dir = '/home/greg/dev/unet-denoiser/data_HICFA21_RES_SMALL'
+    # pad_size = (1536, 512) # WxH
+    pad_size = (1024, 320) # WxH
+    crop_size = (256, 128)
 
     train_loader, test_loader = build_dataset(data_dir, pad_size, crop_size)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -324,8 +327,9 @@ def main():
         best_acc = 0
         start_epoch = -1
 
-    # net = torch.load('./best_model@0.9978700066655877.pth')
-    net = torch.load('./best_model.pth')
+    # net = torch.load('./best_model_UNET.pth')
+    net = torch.load('./best_model@0.9991641542315483.pth')
+
     # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA21/best_model.pth')
     # net = build_model(args, device, device_ids=[0], ckpt=ckpt)
 
@@ -342,7 +346,6 @@ def main():
     optimizer = create_optimizer(args, net.parameters())
     # scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=20, gamma=0.1, last_epoch=-1)
     scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[60, 180], gamma=0.1)
-
     # # prevent : KeyError: "param 'initial_lr' is not specified in param_groups[0] when resuming an optimizer"
     # for i in range(start_epoch):
     #     scheduler.step()

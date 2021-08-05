@@ -22,6 +22,16 @@ ACTIVATION = 'sigmoid' # could be None for logits or 'softmax2d' for multiclass 
 DEVICE = 'cuda'
 DEVICE = 'cpu'
 
+# pixel_shuffle = torch.nn.PixelShuffle(2)
+# input = torch.randn(1, 4, 8, 8)
+
+# print(input)
+# output = pixel_shuffle(input)
+# print(output.size())
+# os.exit(1)
+
+
+
 # load best saved checkpoint
 # checkpoint = torch.load('./best_model.pth')
 checkpoint = torch.load('/home/greg/dev/form-processor/smp/best_model.pth')
@@ -44,6 +54,7 @@ y_test_dir = os.path.join(DATA_DIR, 'train/mask')
 
 x_test_dir = os.path.join(DATA_DIR, '')
 y_test_dir = os.path.join(DATA_DIR, '')    
+
 
 # helper function for data visualization
 def visualize(**images):
@@ -71,7 +82,7 @@ def get_validation_augmentation():
         # albu.PadIfNeeded(384, 1024) # box 33
         # albu.PadIfNeeded(384, 480)
         
-        albu.PadIfNeeded(min_height=512, min_width=1536)
+        albu.PadIfNeeded(min_height=320, min_width=1024)
     ]
     return albu.Compose(test_transform)
 
@@ -109,7 +120,7 @@ test_dataset = Dataset(
     augmentation=get_validation_augmentation(), 
     preprocessing=get_preprocessing(preprocessing_fn),
     classes=CLASSES,
-    size=(1536, 512)
+    size=(1024, 320)
 )
 
 test_dataloader = DataLoader(test_dataset)
@@ -119,7 +130,7 @@ test_dataloader = DataLoader(test_dataset)
 test_dataset_vis = Dataset(
     x_test_dir, y_test_dir, 
     classes=CLASSES,
-    size=(1536, 512)
+    size=(1024, 320)
 )
     
 def get_debug_image(h, w, img, mask):
@@ -142,7 +153,7 @@ for i in tqdm(range(len(test_dataset))):
     n = np.random.choice(len(test_dataset))
     n = i
     
-    # image_vis = test_dataset_vis[n][0].astype('uint8')
+    image_vis = test_dataset_vis[n][0].astype('uint8')
     image, gt_mask = test_dataset[n]
 
     gt_mask = gt_mask.squeeze()
@@ -162,8 +173,8 @@ for i in tqdm(range(len(test_dataset))):
     w = gt_mask.shape[1]
     h = gt_mask.shape[0]
 
-    # debug_img = get_debug_image(h, w, image_vis, pr_mask)
+    debug_img = get_debug_image(h, w, image_vis, pr_mask)
     img_path = '/tmp/segmentation-mask/{}.png'.format(i)
-    cv2.imwrite(img_path, pr_mask)
+    cv2.imwrite(img_path, debug_img)
     
 

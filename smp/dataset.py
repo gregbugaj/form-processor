@@ -110,7 +110,6 @@ class Dataset(BaseDataset):
     
     def __getitem__(self, i):
         # print(f'self.images_fps[i] = {self.images_fps[i]}')
-        # read data
         image = cv2.imread(self.images_fps[i])
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         mask = cv2.imread(self.masks_fps[i], cv2.IMREAD_GRAYSCALE)
@@ -179,8 +178,7 @@ class Dataset(BaseDataset):
 
         # cv2.imwrite(f'/tmp/mask/image_{i}.png', image)
         # cv2.imwrite(f'/tmp/mask/mask_{i}.png', mask * 255)
-
         return image, mask
 
     def __len__(self):
-        return len(self.ids_a) #// 10
+        return len(self.ids_a) # // 4
