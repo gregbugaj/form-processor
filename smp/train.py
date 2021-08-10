@@ -327,8 +327,9 @@ def main():
         best_acc = 0
         start_epoch = -1
 
-    # net = torch.load('./best_model_UNET.pth')
-    net = torch.load('./best_model@0.9991641542315483.pth')
+    # best_model 0.9983158317208294
+    net = torch.load('./best_model_UNET.pth')
+    # net = torch.load('./best_model@0.9991641542315483.pth')
 
     # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA21/best_model.pth')
     # net = build_model(args, device, device_ids=[0], ckpt=ckpt)

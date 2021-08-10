@@ -38,15 +38,13 @@ class FocalTverskyLoss(nn.Module):
 class CustomLoss(nn.Module):
     def __init__(self, weight=None, size_average=True):
         super(CustomLoss, self).__init__()
-        self.dice_loss = smp.losses.DiceLoss(mode='binary')
+        self.dice_loss = smp.losses.DiceLoss(mode='binary', ignore_index=255)
         self.focal_loss = FocalTverskyLoss()
         self.__name__ = 'custom_loss'
 
     def forward(self, inputs, targets):
         dice_loss = self.dice_loss(inputs, targets)
         focal_loss = self.focal_loss(inputs, targets)
-        # criterion = dice_loss + (1 * focal_loss)
-        # criterion = dice_loss + (1 * focal_loss)
         criterion = dice_loss + (1 * focal_loss)
                        
         return criterion        
