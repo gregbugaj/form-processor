@@ -11,6 +11,7 @@ img_path ='/home/greg/dev/assets-private/cvat/TRAINING-ON-DD-GPU/hicfa-forms/out
 img_path ='/tmp/form-segmentation/269692_202006290005214_001.tif/work/resized_mask.png'
 img_path ='/tmp/form-segmentation/mask.png'
 img_path ='/tmp/form-segmentation/272946_0031516169334_001.tif/debug/filtered_1627313939110508043.png'
+img_path ='/home/greg/tmp/hicfa_mask/PID_10_5_0_3101.original_fake_processed.png'
 image = cv2.imread(img_path)
 
 # Create a window
