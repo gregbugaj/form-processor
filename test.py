@@ -74,7 +74,8 @@ if __name__ == '__main__':
             config = json.load(f)
 
         processor = FormProcessor(work_dir=work_dir, config=config, cuda=False)
-        for name in glob.glob('/home/greg/dev/assets-private/27ofStateFarm100/*.tif'):
+        # for name in glob.glob('/home/greg/dev/assets-private/27ofStateFarm100/*.tif'):
+        for name in glob.glob('/media/greg/XENSERVER-6/PID_10_5_0_158875.tif'):
         # for name in glob.glob('/home/greg/dataset/data-hipa/forms/hcfa-allstate/270175_202006300007819_001.tif'):
         # for name in glob.glob('/home/greg/dataset/data-hipa/forms/hcfa-allstate/*.tif'):
         # for name in glob.glob('/media/greg/XENSERVER-6/ImagesForPartAIssues/PID_10_5_0_155085.tif'):

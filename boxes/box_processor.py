@@ -287,15 +287,16 @@ class BoxProcessor:
             # w = 1280 # image.shape[1] # 1280
             w = image.shape[1] # 1280
             # Invertint the image makes box detection substancially better
-            image_norm = 255 - image
+            image_norm = image
+            # image_norm = 255 - image
             cv2.imwrite(os.path.join('/tmp/icr/fields/', key, "NORM_%s.png" % (id)), image_norm)
             # TODO : Externalize as config
 
             bboxes, polys, score_text = get_prediction(
                 image=image_norm,
                 craft_net=self.craft_net,
-                refine_net=None,  # self.refine_net,
-                text_threshold=0.5,
+                refine_net= self.refine_net,
+                text_threshold=0.6,
                 link_threshold=0.4,
                 low_text=0.3,
                 cuda=self.cuda,

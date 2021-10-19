@@ -337,6 +337,7 @@ def main():
         start_epoch = -1
 
     net = torch.load('./best_model.pth')
+    # best_model 0.9983158317208294
 
     # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA21/best_model.pth')
     # net = build_model(args, device, device_ids=[0,1], ckpt=ckpt)
