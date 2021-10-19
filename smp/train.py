@@ -59,6 +59,7 @@ def get_training_augmentation(pad_size, crop_size):
         ),
     ]
     
+    train_transform = []
     return albu.Compose(train_transform)
 
 def get_validation_augmentation(pad_size, crop_size):
@@ -68,6 +69,7 @@ def get_validation_augmentation(pad_size, crop_size):
         albu.RandomCrop(height=crop_size[1]+crop_size[1]//2, width=crop_size[0]+crop_size[0]//2, always_apply=True),
     ]
 
+    test_transform = []
     return albu.Compose(test_transform)
 
 def to_tensor(x, **kwargs):
@@ -306,10 +308,17 @@ def main():
     # Diagnosis
     # 9978700066655877
     data_dir = '/home/greg/dev/unet-denoiser/data_HCFA21'
-    data_dir = '/home/greg/dev/unet-denoiser/data_HICFA21_RES_SMALL'
+    # data_dir = '/home/greg/dev/unet-denoiser/data_HICFA21_RES_SMALL'
     # pad_size = (1536, 512) # WxH
-    pad_size = (1024, 320) # WxH
-    crop_size = (256, 128)
+    pad_size = (1024, 192) # WxH
+    crop_size = (256, 128)    
+    
+    # Training 
+    data_dir = '/home/greg/dataset/data-hipa/forms/splitted'
+    # data_dir = '/home/greg/dev/unet-denoiser/data_HICFA21_RES_SMALL'
+    # pad_size = (1536, 512) # WxH
+    pad_size = (512, 512) # WxH
+    crop_size = (512, 512)
 
     train_loader, test_loader = build_dataset(data_dir, pad_size, crop_size)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -327,11 +336,10 @@ def main():
         best_acc = 0
         start_epoch = -1
 
-    # net = torch.load('./best_model_UNET.pth')
-    net = torch.load('./best_model@0.9991641542315483.pth')
+    net = torch.load('./best_model.pth')
 
     # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA21/best_model.pth')
-    # net = build_model(args, device, device_ids=[0], ckpt=ckpt)
+    # net = build_model(args, device, device_ids=[0,1], ckpt=ckpt)
 
     # print(__net.module.state_dict())
     # net.load_state_dict(__net.module.state_dict())

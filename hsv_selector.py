@@ -7,10 +7,12 @@ def nothing(x):
 # Load image
 img_path ='./assets/forms-seg/001_fake.png'
 img_path ='/tmp/form-segmentation/PID_10_5_0_2787.original.redacted.tif/work/resized_mask.png'
-img_path ='/home/greg/dev/assets-private/cvat/TRAINING-ON-DD-GPU/hicfa-forms/output/mask/pic_0d0e6ef9a4111031dd32be5deb82fd2750d66cf0.jpg'
 img_path ='/tmp/form-segmentation/269692_202006290005214_001.tif/work/resized_mask.png'
 img_path ='/tmp/form-segmentation/mask.png'
 img_path ='/tmp/form-segmentation/272946_0031516169334_001.tif/debug/filtered_1627313939110508043.png'
+
+img_path ='/home/greg/dev/assets-private/cvat/TRAINING-ON-DD-GPU/hicfa-forms/output/mask/pic_0aa0936f009d3926ac2c5e929e6a7434b1dd6a4f.jpg'
+
 image = cv2.imread(img_path)
 
 # Create a window

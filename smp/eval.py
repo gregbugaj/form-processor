@@ -47,13 +47,15 @@ DATA_DIR = '/home/greg/dev/pytorch-CycleGAN-and-pix2pix/datasets/diagnosis_code/
 DATA_DIR = '/home/greg/dev/unet-denoiser/data_HCFA21/'
 DATA_DIR = '/home/greg/dev/unet-denoiser/data/'
 DATA_DIR = '/tmp/form-segmentation/fields/HCFA21'
+DATA_DIR = '/home/greg/HCFA21'
 # DATA_DIR = '/home/greg/dev/unet-denoiser/data'
 
 x_test_dir = os.path.join(DATA_DIR, 'train/image')
 y_test_dir = os.path.join(DATA_DIR, 'train/mask') 
 
-x_test_dir = os.path.join(DATA_DIR, '')
-y_test_dir = os.path.join(DATA_DIR, '')    
+DATA_DIR = '/home/greg/dataset/data-hipa/forms/splitted/test'
+x_test_dir = os.path.join(DATA_DIR, 'image')
+y_test_dir = os.path.join(DATA_DIR, 'mask')    
 
 
 # helper function for data visualization
@@ -82,7 +84,7 @@ def get_validation_augmentation():
         # albu.PadIfNeeded(384, 1024) # box 33
         # albu.PadIfNeeded(384, 480)
         
-        albu.PadIfNeeded(min_height=320, min_width=1024)
+        albu.PadIfNeeded(min_height=512, min_width=512)
     ]
     return albu.Compose(test_transform)
 
@@ -120,7 +122,7 @@ test_dataset = Dataset(
     augmentation=get_validation_augmentation(), 
     preprocessing=get_preprocessing(preprocessing_fn),
     classes=CLASSES,
-    size=(1024, 320)
+    size=(512, 512)
 )
 
 test_dataloader = DataLoader(test_dataset)
@@ -130,7 +132,7 @@ test_dataloader = DataLoader(test_dataset)
 test_dataset_vis = Dataset(
     x_test_dir, y_test_dir, 
     classes=CLASSES,
-    size=(1024, 320)
+    size=(512, 512)
 )
     
 def get_debug_image(h, w, img, mask):
