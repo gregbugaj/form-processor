@@ -1,8 +1,4 @@
 import os
-from numpy.lib.shape_base import _make_along_axis_idx
-
-from numpy.lib.type_check import imag
-
 import cv2
 import matplotlib.pyplot as plt
 
@@ -113,7 +109,7 @@ class Dataset(BaseDataset):
         image = cv2.imread(self.images_fps[i])
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         mask = cv2.imread(self.masks_fps[i], cv2.IMREAD_GRAYSCALE)
-        # cv2.imwrite('/tmp/segmentation-mask/%s.png' % (i), image)
+        # cv2.imwrite('/tmp/segmentation-mask/%s.png' % (i), mask)
 
         def get_size(load_size, size):
             w, h = size
@@ -138,23 +134,25 @@ class Dataset(BaseDataset):
         else:
             image = resize_image(image, (h, w))
             mask = resize_image(mask, (h, w), color=(255, 255, 255))
-            # image = cv2.resize(image, (w, h), interpolation = cv2.INTER_AREA)
-            # mask = cv2.resize(mask, (w, h), interpolation = cv2.INTER_AREA)
 
-        if True:
+        if False:
             # FIXME : Causes bolded artifacts
             # stacking will cause unwanted artifacts, as we only deal with single channel this is OK for now        
             # extract certain classes from mask (e.g. background)
             masks = [(mask == 255)]
+
             # dbg = get_debug_image(512,1536, mask, image)
             # cv2.imwrite(f'/tmp/mask/{i}.png', dbg)
             # cv2.imwrite(f'/tmp/mask/image_raw_{i}.png', image)
             # cv2.imwrite(f'/tmp/mask/mask_raw_{i}.png', mask)
             mask = np.stack(masks, axis=-1).astype('float')
-            # cv2.imwrite(f'/tmp/mask/mask_stacked_{i}.png', mask*255)
+            cv2.imwrite(f'/tmp/mask/mask_stacked_{i}.png', mask*255)
         else:
             masks = [mask]
             mask = np.stack(masks, axis=-1).astype('float')
+
+        cv2.imwrite(f'/tmp/mask/mask_stacked_{i}.png', mask)
+
 
         # apply augmentations
         if self.augmentation:

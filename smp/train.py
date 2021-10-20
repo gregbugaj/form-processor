@@ -2,7 +2,6 @@ from __future__ import print_function
 
 import os
 import random
-import time
 import warnings
 warnings.simplefilter("ignore")
 
@@ -49,17 +48,17 @@ def get_training_augmentation(pad_size, crop_size):
         albu.PadIfNeeded(min_height=pad_size[1], min_width=pad_size[0], always_apply=True, border_mode=0),
         albu.RandomCrop(height=crop_size[1], width=crop_size[0], always_apply=True),
 
-        albu.OneOf(
-            [
-                albu.IAASharpen(p=1),
-                albu.Blur(blur_limit=3, p=1),
-                albu.MotionBlur(blur_limit=3, p=1),
-            ],
-            p=0.9,
-        ),
+        # albu.OneOf(
+        #     [
+        #         albu.IAASharpen(p=1),
+        #         albu.Blur(blur_limit=3, p=1),
+        #         albu.MotionBlur(blur_limit=3, p=1),
+        #     ],
+        #     p=0.9,
+        # ),
     ]
     
-    train_transform = []
+    # train_transform = []
     return albu.Compose(train_transform)
 
 def get_validation_augmentation(pad_size, crop_size):
@@ -69,7 +68,7 @@ def get_validation_augmentation(pad_size, crop_size):
         albu.RandomCrop(height=crop_size[1]+crop_size[1]//2, width=crop_size[0]+crop_size[0]//2, always_apply=True),
     ]
 
-    test_transform = []
+    # test_transform = []
     return albu.Compose(test_transform)
 
 def to_tensor(x, **kwargs):
@@ -315,10 +314,16 @@ def main():
     
     # Training 
     data_dir = '/home/greg/dataset/data-hipa/forms/splitted'
-    # data_dir = '/home/greg/dev/unet-denoiser/data_HICFA21_RES_SMALL'
-    # pad_size = (1536, 512) # WxH
     pad_size = (512, 512) # WxH
     crop_size = (512, 512)
+
+
+    # Training Optical Mark Recognition (OMR)
+    data_dir = '/home/gbugaj/data/training/optical-mark-recognition/hicfa/task_checkboxes-2021_10_18_16_09_24-cvat_for_images_1.1/output_split'
+    pad_size = (1024, 1536) # WxH
+    # pad_size = (768, 1024) # WxH
+    crop_size = (256, 128)  
+    crop_size = (256, 64)  
 
     train_loader, test_loader = build_dataset(data_dir, pad_size, crop_size)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -337,10 +342,7 @@ def main():
         start_epoch = -1
 
     net = torch.load('./best_model.pth')
-    # best_model 0.9983158317208294
-
-    # net = torch.load('/home/greg/dev/form-processor/models/segmenter/SMP_HCFA21/best_model.pth')
-    # net = build_model(args, device, device_ids=[0,1], ckpt=ckpt)
+    # net = build_model(args, device, device_ids=[0], ckpt=ckpt)
 
     # print(__net.module.state_dict())
     # net.load_state_dict(__net.module.state_dict())
@@ -417,5 +419,14 @@ def main():
                    os.path.join('curve', ckpt_name))
 
 if __name__ == '__main__':
+    import sys
+    print('__Python VERSION:', sys.version)
+    print('__pyTorch VERSION:', torch.__version__)
+    print('__CUDNN VERSION:', torch.backends.cudnn.version())
+    print('__Number CUDA Devices:', torch.cuda.device_count())
+
+    print ('Available devices ', torch.cuda.device_count())
+    print ('Current cuda device ', torch.cuda.current_device())
+
     seed_everything(121)
     main()        

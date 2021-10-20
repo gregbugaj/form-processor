@@ -31,10 +31,9 @@ DEVICE = 'cpu'
 # os.exit(1)
 
 
-
 # load best saved checkpoint
-# checkpoint = torch.load('./best_model.pth')
-checkpoint = torch.load('/home/greg/dev/form-processor/smp/best_model.pth')
+checkpoint = torch.load('../smp/best_model.pth')
+# checkpoint = torch.load('/home/greg/dev/form-processor/smp/best_model.pth')
 best_model = checkpoint.to(DEVICE)
 best_model = best_model.module # This is required as we are wrapping th network in DataParallel
 
@@ -54,6 +53,10 @@ x_test_dir = os.path.join(DATA_DIR, 'train/image')
 y_test_dir = os.path.join(DATA_DIR, 'train/mask') 
 
 DATA_DIR = '/home/greg/dataset/data-hipa/forms/splitted/test'
+x_test_dir = os.path.join(DATA_DIR, 'image')
+y_test_dir = os.path.join(DATA_DIR, 'mask')    
+
+DATA_DIR = '/home/gbugaj/data/training/optical-mark-recognition/hicfa/task_checkboxes-2021_10_18_16_09_24-cvat_for_images_1.1/output_split/test'
 x_test_dir = os.path.join(DATA_DIR, 'image')
 y_test_dir = os.path.join(DATA_DIR, 'mask')    
 
@@ -84,7 +87,8 @@ def get_validation_augmentation():
         # albu.PadIfNeeded(384, 1024) # box 33
         # albu.PadIfNeeded(384, 480)
         
-        albu.PadIfNeeded(min_height=512, min_width=512)
+        # albu.PadIfNeeded(min_height=1024, min_width=768)
+        albu.PadIfNeeded(min_height=1056, min_width=1024)
     ]
     return albu.Compose(test_transform)
 
@@ -115,6 +119,7 @@ def tensor2img(tensor, out_type=np.uint8, min_max=(0, 1)):
     tensor = tensor.squeeze().float().cpu().clamp_(*min_max)  # clamp 
     tensor = (tensor - min_max[0]) / (min_max[1] - min_max[0])  # to range [0,1] 
 
+# size=(1024, 1536)
 # create test dataset
 test_dataset = Dataset(
     x_test_dir, 
@@ -122,7 +127,7 @@ test_dataset = Dataset(
     augmentation=get_validation_augmentation(), 
     preprocessing=get_preprocessing(preprocessing_fn),
     classes=CLASSES,
-    size=(512, 512)
+    size=(1024, 1536)
 )
 
 test_dataloader = DataLoader(test_dataset)
@@ -132,7 +137,7 @@ test_dataloader = DataLoader(test_dataset)
 test_dataset_vis = Dataset(
     x_test_dir, y_test_dir, 
     classes=CLASSES,
-    size=(512, 512)
+    size=(1024, 1536)
 )
     
 def get_debug_image(h, w, img, mask):
