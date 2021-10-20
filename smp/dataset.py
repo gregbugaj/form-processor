@@ -6,8 +6,6 @@ import torch
 import numpy as np
 import segmentation_models_pytorch as smp
 
-
-from torch.utils.data import DataLoader
 from torch.utils.data import Dataset as BaseDataset
 
 def resize_image(image, desired_size, color=(255, 255, 255)):
@@ -131,9 +129,9 @@ class Dataset(BaseDataset):
             # print(f'param : {size}  > {new_size}')
             image = resize_image(image_resized, (h, w))
             mask = resize_image(maks_resized, (h, w))
-        else:
-            image = resize_image(image, (h, w))
-            mask = resize_image(mask, (h, w), color=(255, 255, 255))
+    
+        # image = resize_image(image, (h, w))
+        # mask = resize_image(mask, (h, w), color=(255, 255, 255))
 
         if True:
             # FIXME : Causes bolded artifacts

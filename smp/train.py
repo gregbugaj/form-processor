@@ -188,8 +188,8 @@ def build_dataset(data_dir, pad_size, crop_size):
         size=pad_size
     )
 
-    train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True, num_workers=8)
-    valid_loader = DataLoader(valid_dataset, batch_size=1, shuffle=False, num_workers=4)
+    train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True, num_workers=8, pin_memory=True)
+    valid_loader = DataLoader(valid_dataset, batch_size=1, shuffle=False, num_workers=4, pin_memory=True)
 
     # #### Visualize resulted augmented images and masks
     if True:
@@ -320,7 +320,7 @@ def main():
 
     # Training Optical Mark Recognition (OMR)
     data_dir = '/home/gbugaj/data/training/optical-mark-recognition/hicfa/task_checkboxes-2021_10_18_16_09_24-cvat_for_images_1.1/output_split'
-    data_dir = '/home/greg/dataset/cvat/task_checkboxes_2021_10_18/output_split'
+    # data_dir = '/home/greg/dataset/cvat/task_checkboxes_2021_10_18/output_split'
     pad_size = (1024, 1536) # WxH
     # pad_size = (768, 1024) # WxH
     crop_size = (256, 128)  
@@ -343,8 +343,8 @@ def main():
         best_acc = 0
         start_epoch = -1
 
-    # net = torch.load('./best_model.pth')
-    net = build_model(args, device, device_ids=[0], ckpt=ckpt)
+    net = torch.load('./best_model.pth')
+    # net = build_model(args, device, device_ids=[0], ckpt=ckpt)
 
     # print(__net.module.state_dict())
     # net.load_state_dict(__net.module.state_dict())

@@ -57,7 +57,7 @@ x_test_dir = os.path.join(DATA_DIR, 'image')
 y_test_dir = os.path.join(DATA_DIR, 'mask')    
 
 DATA_DIR = '/home/gbugaj/data/training/optical-mark-recognition/hicfa/task_checkboxes-2021_10_18_16_09_24-cvat_for_images_1.1/output_split/test'
-DATA_DIR = '/home/greg/dataset/cvat/task_checkboxes_2021_10_18/output_split/test'
+# DATA_DIR = '/home/greg/dataset/cvat/task_checkboxes_2021_10_18/output_split/test'
 x_test_dir = os.path.join(DATA_DIR, 'image')
 y_test_dir = os.path.join(DATA_DIR, 'mask')    
 
