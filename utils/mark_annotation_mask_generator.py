@@ -134,6 +134,9 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file):
         colormap['checked']=(60,0,0)
         colormap['unchecked']=(180,0,0)
 
+        colormap['checked']=(255,0,0)
+        colormap['unchecked']=(255,0,0)      
+
         if len(polygons)  == 0 and len(boxes) == 0:
             continue
 
@@ -142,8 +145,8 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file):
             for box_node in boxes:
                     label = box_node.attrib['label']
 
-                    # if label == 'unchecked':
-                    #     continue
+                    if label == 'checked':
+                        continue
 
                     xtl = float(box_node.attrib['xtl'])
                     ytl = float(box_node.attrib['ytl'])

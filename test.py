@@ -16,6 +16,9 @@ from form.icr_processor import IcrProcessor
 
 from form.segmenter import FormSegmeneter
 
+from form.optical_mark_recognition import OpticalMarkRecognition
+
+
 if __name__ == '__main__':
 
     work_dir='/tmp/form-segmentation'
@@ -26,7 +29,21 @@ if __name__ == '__main__':
     img_path='/media/greg/XENSERVER-6/27ofStateFarm100/272943_0031516168746_001.tif'
     img_path='/tmp/form-segmentation/aligned_segment.png'
     img_path='/home/greg/dataset/data-hipa/forms/hcfa-allstate/269688_202006290005126_001.tif'
+    img_path='/home/greg/dataset/cvat/task_checkboxes_2021_10_18/output_split/test/image/269697_202006290005659_001_9.png'
 
+
+    if True :
+        print('OMR Detection')
+        omr = OpticalMarkRecognition(work_dir=work_dir)
+        
+        for _path in glob.glob('/home/greg/dataset/cvat/task_checkboxes_2021_10_18/output_split/test/image/*.png'):
+            try:
+                kid = _path.split('/')[-1]
+                omr.find_marks(kid, _path)
+                # break
+            except Exception as ident:
+                print(ident)
+    
     if False:
         image = cv2.imread(img_path)
         work_dir='/tmp/segmentation-mask'
@@ -68,7 +85,7 @@ if __name__ == '__main__':
         icr = IcrProcessor(work_dir)
         icr.recognize(id, key, snippet, boxes, img_fragments, lines)
 
-    if True:
+    if False:
         config_path = 'config-single.json'
         with open(config_path) as f:
             config = json.load(f)

@@ -22,13 +22,14 @@ from adabound.adabound import AdaBound
 from torchsummary import summary
 
 from dataset import Dataset
-from losses import CustomLoss
+from losses import CustomLoss, FocalTverskyLoss
 
 # basic constants
 ENCODER = 'resnet34'
 ENCODER_WEIGHTS = 'imagenet'
-CLASSES = ['foreground']
+CLASSES = ['checked', 'unchecked']
 ACTIVATION = 'sigmoid' # 'sigmoid' # could be None for logits or 'softmax2d' for multiclass segmentation
+ACTIVATION = 'softmax2d' # 'sigmoid' # could be None for logits or 'softmax2d' for multiclass segmentation
 DEVICE = 'cuda'
 
 
@@ -92,6 +93,8 @@ def get_preprocessing(preprocessing_fn):
     
 # helper function for data visualization
 def visualize(**images):
+
+    return
     """PLot images in one row."""
     n = len(images)
     plt.figure(figsize=(16, 5))
@@ -122,13 +125,20 @@ def seed_everything(seed=2**3):
 def build_model(args, device, device_ids=[0], ckpt=None):
     print('==> Building model..')
 
+    aux_params=dict(
+        pooling='avg',             # one of 'avg', 'max'
+        activation='softmax2d',      # activation function, default is None
+        classes=len(CLASSES),                 # define number of output labels
+    )
+
     net = smp.UnetPlusPlus(
         encoder_name=ENCODER, 
-        encoder_weights=ENCODER_WEIGHTS, 
+        encoder_weights=None, #ENCODER_WEIGHTS, 
         classes=len(CLASSES), 
         activation=ACTIVATION,
         decoder_attention_type='scse',
         decoder_use_batchnorm = True,
+        # aux_params=aux_params
     )
     
     # net = smp.DeepLabV3Plus(
@@ -192,7 +202,7 @@ def build_dataset(data_dir, pad_size, crop_size):
     valid_loader = DataLoader(valid_dataset, batch_size=1, shuffle=False, num_workers=4)
 
     # #### Visualize resulted augmented images and masks
-    if True:
+    if False:
         augmented_dataset = Dataset(
             x_train_dir, 
             y_train_dir, 
@@ -325,7 +335,6 @@ def main():
     # pad_size = (768, 1024) # WxH
     crop_size = (256, 128)  
     crop_size = (256, 64)  
-    crop_size = (128, 64)  
 
     train_loader, test_loader = build_dataset(data_dir, pad_size, crop_size)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -350,7 +359,11 @@ def main():
     # net.load_state_dict(__net.module.state_dict())
 
     summary(net)
+    
     loss = CustomLoss()
+    loss._name = 'custom_loss'    
+    
+    loss = smp.losses.DiceLoss(mode='multiclass', ignore_index=255)
     loss._name = 'custom_loss'
 
     print(f'start_epoch : {start_epoch}')

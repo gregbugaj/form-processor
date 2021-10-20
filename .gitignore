@@ -8,6 +8,8 @@ outputs/
 models/
 form/segmenter/
 
+smp/*.pth
+
 # SMP
 smp/best_model.pth
 smp/checkpoint/

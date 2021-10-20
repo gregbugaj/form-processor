@@ -108,7 +108,9 @@ class Dataset(BaseDataset):
         # print(f'self.images_fps[i] = {self.images_fps[i]}')
         image = cv2.imread(self.images_fps[i])
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        mask = cv2.imread(self.masks_fps[i], cv2.IMREAD_GRAYSCALE)
+        # mask = cv2.imread(self.masks_fps[i], cv2.IMREAD_GRAYSCALE)
+        mask = cv2.imread(self.masks_fps[i], 0)
+        
         # cv2.imwrite('/tmp/segmentation-mask/%s.png' % (i), mask)
 
         def get_size(load_size, size):
@@ -139,7 +141,18 @@ class Dataset(BaseDataset):
             # FIXME : Causes bolded artifacts
             # stacking will cause unwanted artifacts, as we only deal with single channel this is OK for now        
             # extract certain classes from mask (e.g. background)
-            masks = [(mask == 255)]
+
+            CLASSES = {}
+            CLASSES['checked'] = 50 
+            CLASSES['unchecked'] = 120 
+            classes = ['checked', 'unchecked']
+            # classes = ['unchecked']
+
+            # convert str names to class values on masks
+            self.class_values = [CLASSES[cls.lower()] for cls in classes]
+            masks = [(mask == v) for v in self.class_values]
+            # 50 120
+            # masks = [(mask == 255)] 
 
             # dbg = get_debug_image(512,1536, mask, image)
             # cv2.imwrite(f'/tmp/mask/{i}.png', dbg)
@@ -147,9 +160,13 @@ class Dataset(BaseDataset):
             # cv2.imwrite(f'/tmp/mask/mask_raw_{i}.png', mask)
             mask = np.stack(masks, axis=-1).astype('float')
             # cv2.imwrite(f'/tmp/mask/mask_stacked_{i}.png', mask*255)
-        else:  # FIXME : THIS CAUSES THE LOSS TO BE NAN
+            # cv2.imwrite(f'/tmp/mask/mask_stacked_{i}.png', mask * 255)
+        else:
             masks = [mask]
             mask = np.stack(masks, axis=-1).astype('float')
+
+        # cv2.imwrite(f'/tmp/mask/mask_stacked_{i}.png', mask)
+
 
         # apply augmentations
         if self.augmentation:
