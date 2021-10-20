@@ -129,7 +129,10 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file):
         colormap = dict()
 
         colormap['checked']=(0,255,0)
-        colormap['unchecked']=(255,0,0)
+        colormap['unchecked']=(255,0,0)        
+        
+        colormap['checked']=(60,0,0)
+        colormap['unchecked']=(180,0,0)
 
         if len(polygons)  == 0 and len(boxes) == 0:
             continue
@@ -138,6 +141,10 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file):
         if len(boxes) > 0:
             for box_node in boxes:
                     label = box_node.attrib['label']
+
+                    # if label == 'unchecked':
+                    #     continue
+
                     xtl = float(box_node.attrib['xtl'])
                     ytl = float(box_node.attrib['ytl'])
                     xbr = float(box_node.attrib['xbr'])
@@ -156,7 +163,6 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file):
                     colors.append(colormap[label])
                     labels.append(label)
 
-                    # break
         # else:
         for polygon_node in polygons:
             label = polygon_node.attrib['label']
@@ -177,7 +183,9 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file):
         index = index+1
 
     print('Total annotations : %s '% (len(data['ds'])))
-    rsize = (1024, 1024)
+    rsize = (1024, 1536)
+    # rsize = (512, 768)
+    # rsize = (768, 1024)
     
     for row in data['ds']:
         filename = row['name']
@@ -224,8 +232,8 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file):
             overlay_img = cv2.addWeighted(overlay_img, alpha, img.copy(), 1 - alpha, 0)
             
             # DO NOT RESIZE
-            # mask_img = cv2.resize(mask_img, rsize)
-            # img = cv2.resize(img, rsize)
+            mask_img = cv2.resize(mask_img, rsize)
+            img = cv2.resize(img, rsize)
 
             path_dest_mask = os.path.join(dir_dest_mask,  "{}.png".format(filename.split('.')[0]))
             path_dest_img = os.path.join(dir_dest_image, "{}.png".format(filename.split('.')[0]))

@@ -6,3 +6,4 @@ dominate
 lmdb
 natsort
 segmentation-models-pytorch
+torchsummary
