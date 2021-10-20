@@ -257,6 +257,7 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file):
             
 if __name__ == '__main__':
     root_src = '/home/gbugaj/data/training/optical-mark-recognition/hicfa/task_checkboxes-2021_10_18_16_09_24-cvat_for_images_1.1'
+    root_src = '/home/greg/dataset/cvat/task_checkboxes_2021_10_18'
 
     dir_src = os.path.join(root_src, 'images', 'HCFA-AllState')
     dir_dest = os.path.join(root_src, 'output')
