@@ -24,6 +24,8 @@ from torchsummary import summary
 from dataset import Dataset
 from losses import CustomLoss
 
+from torch.nn.parallel import DistributedDataParallel as DDP
+
 # basic constants
 ENCODER = 'resnet34'
 ENCODER_WEIGHTS = 'imagenet'
@@ -40,22 +42,17 @@ def get_training_augmentation(pad_size, crop_size):
     """
 
     train_transform = [
-        # albu.ShiftScaleRotate(shift_limit=0.0, scale_limit=0.0, rotate_limit=2, p=0.5, border_mode=0),
-        # albu.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.2, rotate_limit=5, p=0.5, border_mode=cv2.BORDER_CONSTANT, always_apply=False),
-        # albu.ImageCompression(6, 10, p=0.5, always_apply=False),
-        # CoarseDropout
-
         albu.PadIfNeeded(min_height=pad_size[1], min_width=pad_size[0], always_apply=True, border_mode=0),
         albu.RandomCrop(height=crop_size[1], width=crop_size[0], always_apply=True),
 
-        # albu.OneOf(
-        #     [
-        #         albu.IAASharpen(p=1),
-        #         albu.Blur(blur_limit=3, p=1),
-        #         albu.MotionBlur(blur_limit=3, p=1),
-        #     ],
-        #     p=0.9,
-        # ),
+        albu.OneOf(
+            [
+                albu.IAASharpen(p=1),
+                albu.Blur(blur_limit=3, p=1),
+                albu.MotionBlur(blur_limit=3, p=1),
+            ],
+            p=0.9,
+        ),
     ]
     
     # train_transform = []
@@ -141,7 +138,8 @@ def build_model(args, device, device_ids=[0], ckpt=None):
     net = net.to(device)
 
     if device == 'cuda':
-        net = torch.nn.DataParallel(net, device_ids=device_ids)
+        # net = torch.nn.DataParallel(net, device_ids=device_ids)
+        net = torch.nn.parallel.DistributedDataParallel(net, device_ids=device_ids)
         cudnn.benchmark = True
 
     if ckpt:
