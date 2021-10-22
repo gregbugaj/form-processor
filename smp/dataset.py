@@ -10,7 +10,7 @@ class Dataset(BaseDataset):
     Args:
         images_dir (str): path to images folder
         masks_dir (str): path to segmentation masks folder
-        class_values (list): values of classes to extract from segmentation mask
+        class_rgb_values (list): RGB values of select classes to extract from segmentation mask
         augmentation (albumentations.Compose): data transfromation pipeline 
             (e.g. flip, scale, etc.)
         preprocessing (albumentations.Compose): data preprocessing 
@@ -55,8 +55,12 @@ class Dataset(BaseDataset):
         print(f'self.images_fps[i] = {self.images_fps[i]}')
 
         # read images and masks
-        image = cv2.cvtColor(cv2.imread(self.images_fps[i]), cv2.COLOR_BGR2RGB)
-        mask = cv2.cvtColor(cv2.imread(self.masks_fps[i]), cv2.COLOR_BGR2RGB)
+        # image = cv2.cvtColor(cv2.imread(self.images_fps[i]), cv2.COLOR_BGR2RGB)
+        # mask = cv2.cvtColor(cv2.imread(self.masks_fps[i]), cv2.COLOR_BGR2RGB)
+
+        # read images and masks
+        image = cv2.imread(self.images_fps[i])[:,:,::-1]
+        mask = cv2.imread(self.masks_fps[i])[:,:,::-1]
 
         cv2.imwrite(f'/tmp/mask/mask_stacked_{i}.png', mask)
 
