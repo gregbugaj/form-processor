@@ -57,7 +57,9 @@ class Dataset(BaseDataset):
         # read images and masks
         image = cv2.cvtColor(cv2.imread(self.images_fps[i]), cv2.COLOR_BGR2RGB)
         mask = cv2.cvtColor(cv2.imread(self.masks_fps[i]), cv2.COLOR_BGR2RGB)
-        
+
+        cv2.imwrite(f'/tmp/mask/mask_stacked_{i}.png', mask)
+
         # one-hot-encode the mask
         mask = one_hot_encode(mask, self.class_rgb_values).astype('float')
         
