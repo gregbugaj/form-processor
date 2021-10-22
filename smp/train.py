@@ -441,9 +441,7 @@ if __name__ == '__main__':
     print('__pyTorch VERSION:', torch.__version__)
     print('__CUDNN VERSION:', torch.backends.cudnn.version())
     print('__Number CUDA Devices:', torch.cuda.device_count())
-
-    print ('Available devices ', torch.cuda.device_count())
-    print ('Current cuda device ', torch.cuda.current_device())
+    print('Current cuda device:', torch.cuda.current_device())
 
     seed_everything(121)
     main()        
