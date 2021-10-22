@@ -46,7 +46,9 @@ Test
 python test.py --dataroot ./datasets/hicfa/eval_1024 --name hicfa_pix2pix --model test --netG unet_1024 --direction AtoB --dataset_mode single --gpu_id -1 --norm batch  --load_size 1024 --crop_size 1024
 ```
 
-# Ref
+# Reference
 
-one hot encoding
+One Hot Encoding
+
 https://www.kaggle.com/balraj98/deeplabv3-resnet101-for-segmentation-pytorch
+https://www.kaggle.com/balraj98/unet-resnet50-for-cloth-parsing-pytorch/notebook

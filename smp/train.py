@@ -11,7 +11,6 @@ import numpy as np
 import torch
 import segmentation_models_pytorch as smp
 
-import matplotlib.pyplot as plt
 import albumentations as albu
 from torch.utils.data import DataLoader
 import torch.nn as nn
@@ -26,12 +25,35 @@ from losses import CustomLoss
 
 from torch.nn.parallel import DistributedDataParallel as DDP
 
+from codec import colour_code_segmentation, reverse_one_hot
+from visualize import visualize
+
 # basic constants
 ENCODER = 'resnet34'
 ENCODER_WEIGHTS = 'imagenet'
 CLASSES = ['foreground']
 ACTIVATION = 'sigmoid' # 'sigmoid' # could be None for logits or 'softmax2d' for multiclass segmentation
 DEVICE = 'cuda'
+
+class_rgb_values = [
+    [0, 0, 0],
+    [255, 0, 0],
+    [0, 0, 255]
+]
+
+# Get class RGB values
+class_names = ['background', 'checked', 'unchecked']
+select_classes = ['checked', 'unchecked']
+select_classes = ['unchecked']
+# Get RGB values of required classes
+select_class_indices = [class_names.index(cls.lower()) for cls in select_classes]
+select_class_rgb_values = np.array(class_rgb_values)[select_class_indices]
+
+print('Selected classes and their corresponding RGB values in labels:')
+print('\nClass Names: ', class_names)
+print('\nClass RGB values: ', class_rgb_values)
+print('\nClass Indices: ', select_class_indices)
+print('\nSelected RGB values: ', select_class_rgb_values)
 
 
 def get_training_augmentation(pad_size, crop_size):
@@ -86,20 +108,7 @@ def get_preprocessing(preprocessing_fn):
         albu.Lambda(image=to_tensor, mask=to_tensor),
     ]
     return albu.Compose(_transform)
-    
-# helper function for data visualization
-def visualize(**images):
-    """PLot images in one row."""
-    n = len(images)
-    plt.figure(figsize=(16, 5))
-    for i, (name, image) in enumerate(images.items()):
-        
-        plt.subplot(1, n, i + 1)
-        plt.xticks([])
-        plt.yticks([])
-        plt.title(' '.join(name.split('_')).title())
-        plt.imshow(image)
-    plt.show()
+
 
 preprocessing_fn = smp.encoders.get_preprocessing_fn(ENCODER, ENCODER_WEIGHTS)
 
@@ -162,11 +171,19 @@ def build_dataset(data_dir, pad_size, crop_size):
     
     # Lets look at data we have
     if True:
-        dataset = Dataset(x_train_dir, y_train_dir, size=pad_size)
-        image, mask = dataset[3] # get some sample
-        visualize(image=image, mask=mask.squeeze())
+        dataset = Dataset(x_train_dir, y_train_dir,
+                          class_rgb_values=select_class_rgb_values, size=pad_size)
+        image, mask = dataset[3]  # get some sample
+        # visualize(image=image, mask=mask.squeeze())
 
-    # raise Exception('Done')
+        visualize(
+            original_image=image,
+            ground_truth_mask=colour_code_segmentation(
+                reverse_one_hot(mask), select_class_rgb_values),
+            one_hot_encoded_mask=reverse_one_hot(mask)
+        )
+
+    raise Exception('Done')
 
     train_dataset = Dataset(
         x_train_dir, 

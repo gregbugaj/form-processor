@@ -122,21 +122,15 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file):
         polygons = element.findall("polygon")
         boxes = element.findall("box")
         filename = name.split('/')[-1]
-    
+
         points = []
         colors = []
         labels = []
         colormap = dict()
 
-        colormap['checked']=(0,255,0)
-        colormap['unchecked']=(255,0,0)        
+        colormap['checked'] = (0, 255, 0)
+        colormap['unchecked'] = (255, 0, 0)
         
-        colormap['checked']=(60,0,0)
-        colormap['unchecked']=(180,0,0)
-
-        colormap['checked']=(255,0,0)
-        colormap['unchecked']=(255,0,0)      
-
         if len(polygons)  == 0 and len(boxes) == 0:
             continue
 
@@ -145,8 +139,8 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file):
             for box_node in boxes:
                     label = box_node.attrib['label']
 
-                    if label == 'checked':
-                        continue
+                    # if label == 'checked':
+                    #     continue
 
                     xtl = float(box_node.attrib['xtl'])
                     ytl = float(box_node.attrib['ytl'])
@@ -268,7 +262,7 @@ def create_mask(dir_src, dir_dest, cvat_annotation_file):
             
 if __name__ == '__main__':
     root_src = '/home/gbugaj/data/training/optical-mark-recognition/hicfa/task_checkboxes-2021_10_18_16_09_24-cvat_for_images_1.1'
-    root_src = '/home/greg/dataset/cvat/task_checkboxes_2021_10_18'
+    # root_src = '/home/greg/dataset/cvat/task_checkboxes_2021_10_18'
 
     dir_src = os.path.join(root_src, 'images', 'HCFA-AllState')
     dir_dest = os.path.join(root_src, 'output')
