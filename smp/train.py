@@ -44,7 +44,7 @@ class_rgb_values = [
 # Get class RGB values
 class_names = ['background', 'checked', 'unchecked']
 select_classes = ['checked', 'unchecked']
-select_classes = ['unchecked']
+select_classes = ['background', 'checked', 'unchecked']
 # Get RGB values of required classes
 select_class_indices = [class_names.index(cls.lower()) for cls in select_classes]
 select_class_rgb_values = np.array(class_rgb_values)[select_class_indices]
