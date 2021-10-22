@@ -23,3 +23,8 @@ $ pip install git+https://github.com/qubvel/segmentation_models.pytorch
 
 
 ICR Accuracy : 97.87234
+
+# Ref
+
+one hot encoding
+https://www.kaggle.com/balraj98/deeplabv3-resnet101-for-segmentation-pytorch
