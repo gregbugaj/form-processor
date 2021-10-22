@@ -36,15 +36,16 @@ ACTIVATION = 'sigmoid' # 'sigmoid' # could be None for logits or 'softmax2d' for
 DEVICE = 'cuda'
 
 class_rgb_values = [
-    [0, 0, 0],
+    [255, 255, 255],
+    [0, 255, 0],
     [255, 0, 0],
-    [0, 0, 255]
 ]
 
 # Get class RGB values
 class_names = ['background', 'checked', 'unchecked']
-select_classes = ['checked', 'unchecked']
 select_classes = ['background', 'checked', 'unchecked']
+select_classes = ['background', 'checked',]
+# select_classes = ['background', 'unchecked']
 # Get RGB values of required classes
 select_class_indices = [class_names.index(cls.lower()) for cls in select_classes]
 select_class_rgb_values = np.array(class_rgb_values)[select_class_indices]

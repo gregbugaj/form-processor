@@ -55,14 +55,13 @@ class Dataset(BaseDataset):
         print(f'self.images_fps[i] = {self.images_fps[i]}')
 
         # read images and masks
-        # image = cv2.cvtColor(cv2.imread(self.images_fps[i]), cv2.COLOR_BGR2RGB)
-        # mask = cv2.cvtColor(cv2.imread(self.masks_fps[i]), cv2.COLOR_BGR2RGB)
+        image = cv2.cvtColor(cv2.imread(self.images_fps[i]), cv2.COLOR_BGR2RGB)
+        mask = cv2.cvtColor(cv2.imread(self.masks_fps[i]), cv2.COLOR_BGR2RGB)
 
         # read images and masks
-        image = cv2.imread(self.images_fps[i])[:,:,::-1]
-        mask = cv2.imread(self.masks_fps[i])[:,:,::-1]
-
-        cv2.imwrite(f'/tmp/mask/mask_stacked_{i}.png', mask)
+        # image = cv2.imread(self.images_fps[i])[:,:,::-1]
+        # mask = cv2.imread(self.masks_fps[i])[:,:,::-1]
+        # cv2.imwrite(f'/tmp/mask/mask_stacked_{i}.png', mask)
 
         # one-hot-encode the mask
         mask = one_hot_encode(mask, self.class_rgb_values).astype('float')
@@ -74,23 +73,15 @@ class Dataset(BaseDataset):
             sample = self.augmentation(image=image, mask=mask)
             image, mask = sample['image'], sample['mask']
 
-        # cv2.imwrite(f'/tmp/mask/image_augmentation_{i}.png', image)
-        # cv2.imwrite(f'/tmp/mask/mask_augmentation_{i}.png', mask * 255)
-
         # apply preprocessing
         if self.preprocessing:
             sample = self.preprocessing(image=image, mask=mask)
             image, mask = sample['image'], sample['mask']
 
-        # cv2.imwrite(f'/tmp/mask/image_preprocessing_{i}.png', image)
-        # cv2.imwrite(f'/tmp/mask/mask_preprocessing{i}.png', mask * 255)
+        print('image / mask')
+        print(image.shape)
+        print(mask.shape)
 
-        # print('image / mask')
-        # print(image.shape)
-        # print(mask.shape)
-
-        # cv2.imwrite(f'/tmp/mask/image_{i}.png', image)
-        # cv2.imwrite(f'/tmp/mask/mask_{i}.png', mask * 255)
         return image, mask
 
     def __len__(self):
