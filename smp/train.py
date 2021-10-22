@@ -341,7 +341,7 @@ def main():
         best_acc = 0
         start_epoch = -1
 
-    net = torch.load('./best_model.pth')
+    net = torch.load('./best_model.pth', map_location=DEVICE)
     # net = build_model(args, device, device_ids=[0], ckpt=ckpt)
 
     # print(__net.module.state_dict())
