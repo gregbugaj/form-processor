@@ -1,6 +1,5 @@
 import os
 import cv2
-import numpy as np
 from torch.utils.data import Dataset as BaseDataset
 from codec import one_hot_encode
 
@@ -52,7 +51,7 @@ class Dataset(BaseDataset):
 
 
     def __getitem__(self, i):
-        print(f'self.images_fps[i] = {self.images_fps[i]}')
+        # print(f'self.images_fps[i] = {self.images_fps[i]}')
 
         # read images and masks
         image = cv2.cvtColor(cv2.imread(self.images_fps[i]), cv2.COLOR_BGR2RGB)
@@ -78,9 +77,10 @@ class Dataset(BaseDataset):
             sample = self.preprocessing(image=image, mask=mask)
             image, mask = sample['image'], sample['mask']
 
-        print('image / mask')
-        print(image.shape)
-        print(mask.shape)
+        if False:
+            print('image / mask')
+            print(image.shape)
+            print(mask.shape)
 
         return image, mask
 

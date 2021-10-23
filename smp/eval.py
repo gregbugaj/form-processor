@@ -2,6 +2,7 @@ import os
 from PIL import Image
 import cv2
 import matplotlib.pyplot as plt
+from codec import colour_code_segmentation, reverse_one_hot
 
 import torch
 import numpy as np
@@ -9,7 +10,6 @@ import segmentation_models_pytorch as smp
 
 
 from torch.utils.data import DataLoader
-from torch.utils.data import Dataset as BaseDataset
 import albumentations as albu
 from tqdm import tqdm
 
@@ -17,18 +17,32 @@ from dataset import Dataset
 
 ENCODER = 'resnet34'
 ENCODER_WEIGHTS = 'imagenet'
-CLASSES = ['form']
+# CLASSES = ['form']
 ACTIVATION = 'sigmoid' # could be None for logits or 'softmax2d' for multiclass segmentation
 DEVICE = 'cuda'
 DEVICE = 'cpu'
 
-# pixel_shuffle = torch.nn.PixelShuffle(2)
-# input = torch.randn(1, 4, 8, 8)
 
-# print(input)
-# output = pixel_shuffle(input)
-# print(output.size())
-# os.exit(1)
+## TODO : Read from config
+class_rgb_values = [
+    [255, 255, 255],
+    [0, 255, 0],
+    [255, 0, 0],
+]
+
+# Get class RGB values
+class_names = ['background', 'checked', 'unchecked']
+select_classes = ['background', 'checked', 'unchecked']
+
+# Get RGB values of required classes
+select_class_indices = [class_names.index(cls.lower()) for cls in select_classes]
+select_class_rgb_values = np.array(class_rgb_values)[select_class_indices]
+
+print('Selected classes and their corresponding RGB values in labels:')
+print('\nClass Names: ', class_names)
+print('\nClass RGB values: ', class_rgb_values)
+print('\nClass Indices: ', select_class_indices)
+print('\nSelected RGB values: ', select_class_rgb_values)
 
 
 # load best saved checkpoint
@@ -57,7 +71,7 @@ x_test_dir = os.path.join(DATA_DIR, 'image')
 y_test_dir = os.path.join(DATA_DIR, 'mask')    
 
 DATA_DIR = '/home/gbugaj/data/training/optical-mark-recognition/hicfa/task_checkboxes-2021_10_18_16_09_24-cvat_for_images_1.1/output_split/test'
-# DATA_DIR = '/home/greg/dataset/cvat/task_checkboxes_2021_10_18/output_split/test'
+DATA_DIR = '/home/greg/dataset/cvat/task_checkboxes_2021_10_18/output_split/test'
 x_test_dir = os.path.join(DATA_DIR, 'image')
 y_test_dir = os.path.join(DATA_DIR, 'mask')    
 
@@ -127,7 +141,7 @@ test_dataset = Dataset(
     y_test_dir, 
     augmentation=get_validation_augmentation(), 
     preprocessing=get_preprocessing(preprocessing_fn),
-    classes=CLASSES,
+    class_rgb_values=select_class_rgb_values,
     size=(1024, 1536)
 )
 
@@ -137,7 +151,7 @@ test_dataloader = DataLoader(test_dataset)
 # test dataset without transformations for image visualization
 test_dataset_vis = Dataset(
     x_test_dir, y_test_dir, 
-    classes=CLASSES,
+    class_rgb_values=select_class_rgb_values,
     size=(1024, 1536)
 )
     
@@ -156,7 +170,6 @@ def get_debug_image(h, w, img, mask):
     cv2.line(debug_img, (0, h), (debug_img.shape[1], h), (255, 0, 0), 1)
     return debug_img
 
-
 for i in tqdm(range(len(test_dataset))):
     n = np.random.choice(len(test_dataset))
     n = i
@@ -169,8 +182,28 @@ for i in tqdm(range(len(test_dataset))):
     print(image.shape)
 
     x_tensor = torch.from_numpy(image).to(DEVICE).unsqueeze(0)
+    
+    # Predict test image
+    pred_mask = best_model(x_tensor)
+    pred_mask = pred_mask.detach().squeeze().cpu().numpy()
+
+    # Convert pred_mask from `CHW` format to `HWC` format
+    pred_mask = np.transpose(pred_mask,(1,2,0))
+    pred_mask = colour_code_segmentation(reverse_one_hot(pred_mask), select_class_rgb_values)
+
+
+    print('pred_mask shape ***')    
+    print(pred_mask.shape)
+
+
+    img_path = '/tmp/segmentation-mask/pred_mask_{}.png'.format(i)
+    cv2.imwrite(img_path, pred_mask)
+
+    continue
     pr_mask = best_model.predict(x_tensor)
     pr_mask = (pr_mask.squeeze().cpu().numpy().round())
+    
+    continue
  
     # pr_mask = 255-pr_mask*255
     # gt_mask = 255-gt_mask*255
@@ -185,4 +218,35 @@ for i in tqdm(range(len(test_dataset))):
     img_path = '/tmp/segmentation-mask/{}.png'.format(i)
     cv2.imwrite(img_path, debug_img)
     
+    
+
+if False:
+    for i in tqdm(range(len(test_dataset))):
+        n = np.random.choice(len(test_dataset))
+        n = i
+        
+        image_vis = test_dataset_vis[n][0].astype('uint8')
+        image, gt_mask = test_dataset[n]
+
+        gt_mask = gt_mask.squeeze()
+        print('Shapes ***')    
+        print(image.shape)
+
+        x_tensor = torch.from_numpy(image).to(DEVICE).unsqueeze(0)
+        pr_mask = best_model.predict(x_tensor)
+        pr_mask = (pr_mask.squeeze().cpu().numpy().round())
+    
+        # pr_mask = 255-pr_mask*255
+        # gt_mask = 255-gt_mask*255
+
+        pr_mask = pr_mask*255
+        gt_mask = 255-gt_mask*255
+
+        w = gt_mask.shape[1]
+        h = gt_mask.shape[0]
+
+        debug_img = get_debug_image(h, w, image_vis, pr_mask)
+        img_path = '/tmp/segmentation-mask/{}.png'.format(i)
+        cv2.imwrite(img_path, debug_img)
+        
 

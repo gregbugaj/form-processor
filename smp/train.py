@@ -31,10 +31,11 @@ from visualize import visualize
 # basic constants
 ENCODER = 'resnet34'
 ENCODER_WEIGHTS = 'imagenet'
-CLASSES = ['foreground']
+# CLASSES = ['foreground']
 ACTIVATION = 'sigmoid' # 'sigmoid' # could be None for logits or 'softmax2d' for multiclass segmentation
 DEVICE = 'cuda'
 
+## TODO : Read from config
 class_rgb_values = [
     [255, 255, 255],
     [0, 255, 0],
@@ -44,8 +45,7 @@ class_rgb_values = [
 # Get class RGB values
 class_names = ['background', 'checked', 'unchecked']
 select_classes = ['background', 'checked', 'unchecked']
-select_classes = ['background', 'checked',]
-# select_classes = ['background', 'unchecked']
+
 # Get RGB values of required classes
 select_class_indices = [class_names.index(cls.lower()) for cls in select_classes]
 select_class_rgb_values = np.array(class_rgb_values)[select_class_indices]
@@ -132,7 +132,7 @@ def build_model(args, device, device_ids=[0], ckpt=None):
     net = smp.UnetPlusPlus(
         encoder_name=ENCODER, 
         encoder_weights=ENCODER_WEIGHTS, 
-        classes=len(CLASSES), 
+        classes=len(select_classes), 
         activation=ACTIVATION,
         decoder_attention_type='scse',
         decoder_use_batchnorm = True,
@@ -148,8 +148,8 @@ def build_model(args, device, device_ids=[0], ckpt=None):
     net = net.to(device)
 
     if device == 'cuda':
-        # net = torch.nn.DataParallel(net, device_ids=device_ids)
-        net = torch.nn.parallel.DistributedDataParallel(net, device_ids=device_ids)
+        net = torch.nn.DataParallel(net, device_ids=device_ids)
+        # net = torch.nn.parallel.DistributedDataParallel(net, device_ids=device_ids)
         cudnn.benchmark = True
 
     if ckpt:
@@ -172,26 +172,23 @@ def build_dataset(data_dir, pad_size, crop_size):
     
     # Lets look at data we have
     if True:
-        dataset = Dataset(x_train_dir, y_train_dir,
-                          class_rgb_values=select_class_rgb_values, size=pad_size)
+        dataset = Dataset(x_train_dir, y_train_dir, class_rgb_values=select_class_rgb_values, size=pad_size)
         image, mask = dataset[3]  # get some sample
         # visualize(image=image, mask=mask.squeeze())
 
         visualize(
             original_image=image,
-            ground_truth_mask=colour_code_segmentation(
-                reverse_one_hot(mask), select_class_rgb_values),
+            ground_truth_mask=colour_code_segmentation(reverse_one_hot(mask), select_class_rgb_values),
             one_hot_encoded_mask=reverse_one_hot(mask)
         )
 
-    raise Exception('Done')
-
+    
     train_dataset = Dataset(
         x_train_dir, 
         y_train_dir, 
         augmentation=get_training_augmentation(pad_size=pad_size, crop_size=crop_size), 
         preprocessing=get_preprocessing(preprocessing_fn),
-        classes=CLASSES,
+        class_rgb_values=select_class_rgb_values,
         size=pad_size
     )
 
@@ -200,12 +197,15 @@ def build_dataset(data_dir, pad_size, crop_size):
         y_valid_dir, 
         augmentation=get_validation_augmentation(pad_size=pad_size, crop_size=crop_size), 
         preprocessing=get_preprocessing(preprocessing_fn),
-        classes=CLASSES,
+        class_rgb_values=select_class_rgb_values,
         size=pad_size
     )
 
-    train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True, num_workers=8, pin_memory=True)
-    valid_loader = DataLoader(valid_dataset, batch_size=1, shuffle=False, num_workers=4, pin_memory=True)
+    # TODO :  Pining memory (pin_memory=True) will cause >> Warning: Leaking Caffe2 thread-pool after fork. 
+    # https://github.com/pytorch/pytorch/issues/57273
+    train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True, num_workers=8)
+    valid_loader = DataLoader(valid_dataset, batch_size=1, shuffle=False, num_workers=4)
+
 
     # #### Visualize resulted augmented images and masks
     if True:
@@ -213,6 +213,7 @@ def build_dataset(data_dir, pad_size, crop_size):
             x_train_dir, 
             y_train_dir, 
             augmentation=get_training_augmentation(pad_size=pad_size, crop_size=crop_size),
+            class_rgb_values=select_class_rgb_values,
             size=pad_size
         )
 
@@ -220,7 +221,16 @@ def build_dataset(data_dir, pad_size, crop_size):
         for i in range(3):
             idx = np.random.randint(len(augmented_dataset))
             image, mask = augmented_dataset[idx]
-            visualize(image=image, mask=mask.squeeze(-1))
+
+            visualize(
+                original_image=image,
+                ground_truth_mask=colour_code_segmentation(reverse_one_hot(mask), select_class_rgb_values),
+                one_hot_encoded_mask=reverse_one_hot(mask)
+            )
+
+            # visualize(image=image, mask=mask.squeeze(-1))
+
+    # raise Exception('Done')
 
     return train_loader, valid_loader
 
@@ -336,7 +346,7 @@ def main():
 
     # Training Optical Mark Recognition (OMR)
     data_dir = '/home/gbugaj/data/training/optical-mark-recognition/hicfa/task_checkboxes-2021_10_18_16_09_24-cvat_for_images_1.1/output_split'
-    # data_dir = '/home/greg/dataset/cvat/task_checkboxes_2021_10_18/output_split'
+    data_dir = '/home/greg/dataset/cvat/task_checkboxes_2021_10_18/output_split'
     pad_size = (1024, 1536) # WxH
     # pad_size = (768, 1024) # WxH
     crop_size = (256, 128)  
@@ -359,8 +369,8 @@ def main():
         best_acc = 0
         start_epoch = -1
 
-    net = torch.load('./best_model.pth', map_location=DEVICE)
-    # net = build_model(args, device, device_ids=[0], ckpt=ckpt)
+    # net = torch.load('./best_model.pth', map_location=DEVICE)
+    net = build_model(args, device, device_ids=[0], ckpt=ckpt)
 
     # print(__net.module.state_dict())
     # net.load_state_dict(__net.module.state_dict())
