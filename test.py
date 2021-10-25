@@ -30,17 +30,19 @@ if __name__ == '__main__':
     img_path='/tmp/form-segmentation/aligned_segment.png'
     img_path='/home/greg/dataset/data-hipa/forms/hcfa-allstate/269688_202006290005126_001.tif'
     img_path='/home/greg/dataset/cvat/task_checkboxes_2021_10_18/output_split/test/image/269697_202006290005659_001_9.png'
+    img_path='/home/greg/dataset/cvat/task_checkboxes_2021_10_18/output_split/test/image/269697_202006290005659_001_9.png'
 
 
     if True :
         print('OMR Detection')
         omr = OpticalMarkRecognition(work_dir=work_dir)
         
-        for _path in glob.glob('/home/greg/dataset/cvat/task_checkboxes_2021_10_18/output_split/test/image/*.png'):
+        for _path in glob.glob('/home/gbugaj/data/training/optical-mark-recognition/hicfa/task_checkboxes-2021_10_18_16_09_24-cvat_for_images_1.1/output_split/test/image/*.png'):
             try:
                 kid = _path.split('/')[-1]
-                omr.find_marks(kid, _path)
-                # break
+                results = omr.find_marks(kid, _path)
+                print(results)
+                break
             except Exception as ident:
                 print(ident)
     

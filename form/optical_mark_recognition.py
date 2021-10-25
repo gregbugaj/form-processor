@@ -1,4 +1,7 @@
 import os, sys
+import types
+import typing
+
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
 
 import torch
@@ -127,11 +130,12 @@ class OpticalMarkRecognition:
         
         return pr_mask        
 
-    def __segment(self, image, mask, color) -> np.ndarray:
+    def __segment(self, image, mask, color) -> typing.List[typing.Any]:
         """Segment image"""
         start = time.time()
         segment = None
 
+        results = []
         # Extract ROI
         (cnts, _) = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
         (cnts, _) = cv2.findContours(mask, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
@@ -141,7 +145,7 @@ class OpticalMarkRecognition:
             # approximate the contour
             peri = cv2.arcLength(c, True)
             approx = cv2.approxPolyDP(c, 0.01 * peri, True)
-            print(f'approx = {len(approx)}')
+            # print(f'approx = {len(approx)}')
             # allow for some holes 
 
             if len(approx) >= 4 and len(approx) <= 12:
@@ -152,13 +156,16 @@ class OpticalMarkRecognition:
                 hull_area = cv2.contourArea(cv2.convexHull(c))
                 solidity = area / float(hull_area)
 
-                print(f'area : {area}')
-                print(f'solidity : {solidity}')
-                print(f'aspect_ratio : {aspect_ratio}')
+                if debug:
+                    print(f'area : {area}')
+                    print(f'solidity : {solidity}')
+                    print(f'aspect_ratio : {aspect_ratio}')
 
                 if solidity > .90 and (aspect_ratio >= 0.8 and aspect_ratio <= 1.2):
                     # cv2.drawContours(image, [approx], -1, (0, 0, 255), 1)
-                    x, y, w, h = cv2.boundingRect(c)                    
+                    box = cv2.boundingRect(c)
+                    x, y, w, h = box
+                    results.append(box)
                     cv2.rectangle(image, (x, y), (x+w, y+h), color, 2)
 
         if debug:
@@ -167,7 +174,7 @@ class OpticalMarkRecognition:
         dt = time.time() - start
         logging.info('Eval time %.3f sec' % dt)
 
-        return segment
+        return results
 
     def __extract(self, kid, image, model):
         # FIXME : Size is hardcoded here this needs to be parametized
@@ -239,10 +246,11 @@ class OpticalMarkRecognition:
         cv2.imwrite(os.path.join(debug_dir, 'mask_checked_preprocess.png'), mask_checked)
         cv2.imwrite(os.path.join(debug_dir, 'mask_unchecked_preprocess.png'), mask_unchecked)
 
-        self.__segment(image, mask_checked, color = (0, 255, 0))
-        self.__segment(image, mask_unchecked, color = (0, 0, 255))
-
+        results = dict()
+        results['checked'] =  self.__segment(image, mask_checked, color = (0, 255, 0))
+        results['unchecked'] =  self.__segment(image, mask_unchecked, color = (0, 0, 255))
+        
         image = cv2.resize(image, (image.shape[1]//2, image.shape[0]//2), interpolation = cv2.INTER_LINEAR)
         cv2.imwrite(os.path.join(debug_dir, f'marked_{kid}.png'), image)
 
-        return None
+        return results
