@@ -295,10 +295,10 @@ class BoxProcessor:
             bboxes, polys, score_text = get_prediction(
                 image=image_norm,
                 craft_net=self.craft_net,
-                refine_net= self.refine_net,
+                refine_net= None,# self.refine_net,
                 text_threshold=0.6,
                 link_threshold=0.4,
-                low_text=0.3,
+                low_text=0.35,
                 cuda=self.cuda,
                 poly=False,
                 # canvas_size=1280,#w + w // 2,
@@ -509,7 +509,7 @@ class BoxProcessor:
                     print('Line number == -1')
                     print (line_indexes)
                     print(box)
-                    raise Exception('Borked')
+                    # raise Exception('Borked')
 
                 # assert line_number == -1 , 'Invalid line number : -1, this looks like a bug'
 
