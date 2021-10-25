@@ -50,3 +50,8 @@ python test.py --dataroot ./datasets/hicfa/eval_1024 --name hicfa_pix2pix --mode
 
 one hot encoding
 https://www.kaggle.com/balraj98/deeplabv3-resnet101-for-segmentation-pytorch
+
+Table detection
+https://github.com/asagar60/TableNet-pytorch
+https://github.com/DevashishPrasad/CascadeTabNet
+https://github.com/ibm-aur-nlp/PubTabNet
