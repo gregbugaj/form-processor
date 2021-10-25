@@ -55,3 +55,4 @@ Table detection
 https://github.com/asagar60/TableNet-pytorch
 https://github.com/DevashishPrasad/CascadeTabNet
 https://github.com/ibm-aur-nlp/PubTabNet
+https://towardsdatascience.com/a-table-detection-cell-recognition-and-text-extraction-algorithm-to-convert-tables-to-excel-files-902edcf289ec
