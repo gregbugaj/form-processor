@@ -342,7 +342,7 @@ def main():
     data_dir = '/home/gbugaj/devio/unet-denoiser/data_hicfa_mask'
     # data_dir = '/home/greg/dataset/cvat/task_checkboxes_2021_10_18/output_split'
     pad_size = (1792, 2494) # WxH
-    crop_size = (256, 256)  
+    crop_size = (256, 128)  
 
     train_loader, test_loader = build_dataset(data_dir, pad_size, crop_size)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -360,8 +360,8 @@ def main():
         best_acc = 0
         start_epoch = -1
 
-    # net = torch.load('./best_model.pth', map_location=DEVICE)
-    net = build_model(args, device, device_ids=[0], ckpt=ckpt)
+    net = torch.load('./best_model.pth', map_location=DEVICE)
+    # net = build_model(args, device, device_ids=[0], ckpt=ckpt)
 
     # print(__net.module.state_dict())
     # net.load_state_dict(__net.module.state_dict())
@@ -449,3 +449,8 @@ if __name__ == '__main__':
 
     seed_everything(121)
     main()        
+
+    # 0.9843019049371305
+    # 0.9848774707497067
+    # 0.9851496653940202
+    # 0.9879640829024
