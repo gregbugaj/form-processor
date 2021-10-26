@@ -58,6 +58,7 @@ y_test_dir = os.path.join(DATA_DIR, 'mask')
 
 DATA_DIR = '/home/gbugaj/data/training/optical-mark-recognition/hicfa/task_checkboxes-2021_10_18_16_09_24-cvat_for_images_1.1/output_split/test'
 # DATA_DIR = '/home/greg/dataset/cvat/task_checkboxes_2021_10_18/output_split/test'
+DATA_DIR = '/home/gbugaj/devio/unet-denoiser/data_hicfa_mask/test'
 x_test_dir = os.path.join(DATA_DIR, 'image')
 y_test_dir = os.path.join(DATA_DIR, 'mask')    
 
@@ -84,12 +85,8 @@ def get_validation_augmentation():
     """Add paddings to make image shape divisible by 32"""
     test_transform = [
         # albu.PadIfNeeded(256, 1024)
-        # albu.PadIfNeeded(288, 1664)
-        # albu.PadIfNeeded(384, 1024) # box 33
-        # albu.PadIfNeeded(384, 480)
-        
         # albu.PadIfNeeded(min_height=1024, min_width=768)
-        albu.PadIfNeeded(min_height=1056, min_width=1024)
+        albu.PadIfNeeded(min_height=2496, min_width=1792) 
     ]
     return albu.Compose(test_transform)
 
@@ -120,7 +117,7 @@ def tensor2img(tensor, out_type=np.uint8, min_max=(0, 1)):
     tensor = tensor.squeeze().float().cpu().clamp_(*min_max)  # clamp 
     tensor = (tensor - min_max[0]) / (min_max[1] - min_max[0])  # to range [0,1] 
 
-# size=(1024, 1536)
+# size=(1792, 2494)
 # create test dataset
 test_dataset = Dataset(
     x_test_dir, 
@@ -128,7 +125,7 @@ test_dataset = Dataset(
     augmentation=get_validation_augmentation(), 
     preprocessing=get_preprocessing(preprocessing_fn),
     classes=CLASSES,
-    size=(1024, 1536)
+    size=(1792, 2496)
 )
 
 test_dataloader = DataLoader(test_dataset)
@@ -138,7 +135,7 @@ test_dataloader = DataLoader(test_dataset)
 test_dataset_vis = Dataset(
     x_test_dir, y_test_dir, 
     classes=CLASSES,
-    size=(1024, 1536)
+    size=(1792, 2496)
 )
     
 def get_debug_image(h, w, img, mask):

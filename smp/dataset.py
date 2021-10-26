@@ -130,8 +130,8 @@ class Dataset(BaseDataset):
             image = resize_image(image_resized, (h, w))
             mask = resize_image(maks_resized, (h, w))
     
-        # image = resize_image(image, (h, w))
-        # mask = resize_image(mask, (h, w), color=(255, 255, 255))
+        image = resize_image(image, (h, w))
+        mask = resize_image(mask, (h, w), color=(255, 255, 255))
 
         if True:
             # FIXME : Causes bolded artifacts

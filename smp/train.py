@@ -45,14 +45,17 @@ def get_training_augmentation(pad_size, crop_size):
         albu.PadIfNeeded(min_height=pad_size[1], min_width=pad_size[0], always_apply=True, border_mode=0),
         albu.RandomCrop(height=crop_size[1], width=crop_size[0], always_apply=True),
 
-        albu.OneOf(
-            [
-                albu.IAASharpen(p=1),
-                albu.Blur(blur_limit=3, p=1),
-                albu.MotionBlur(blur_limit=3, p=1),
-            ],
-            p=0.9,
-        ),
+        albu.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.2, rotate_limit=5, p=0.5, border_mode=cv2.BORDER_CONSTANT, always_apply=False),
+        albu.ImageCompression(6, 10, p=0.5, always_apply=False),
+
+        # albu.OneOf(
+        #     [
+        #         albu.IAASharpen(p=1),
+        #         albu.Blur(blur_limit=3, p=1),
+        #         albu.MotionBlur(blur_limit=3, p=1),
+        #     ],
+        #     p=0.9,
+        # ),
     ]
     
     # train_transform = []
@@ -126,6 +129,15 @@ def build_model(args, device, device_ids=[0], ckpt=None):
         activation=ACTIVATION,
         decoder_attention_type='scse',
         decoder_use_batchnorm = True,
+    )    
+    
+    net = smp.Unet3Plus(
+        encoder_name=ENCODER, 
+        encoder_weights=ENCODER_WEIGHTS, 
+        classes=len(CLASSES), 
+        activation=ACTIVATION,
+        decoder_attention_type='scse',
+        decoder_use_batchnorm = True,
     )
     
     # net = smp.DeepLabV3Plus(
@@ -138,8 +150,8 @@ def build_model(args, device, device_ids=[0], ckpt=None):
     net = net.to(device)
 
     if device == 'cuda':
-        # net = torch.nn.DataParallel(net, device_ids=device_ids)
-        net = torch.nn.parallel.DistributedDataParallel(net, device_ids=device_ids)
+        net = torch.nn.DataParallel(net, device_ids=device_ids)
+        # net = torch.nn.parallel.DistributedDataParallel(net, device_ids=device_ids)
         cudnn.benchmark = True
 
     if ckpt:
@@ -186,8 +198,8 @@ def build_dataset(data_dir, pad_size, crop_size):
         size=pad_size
     )
 
-    train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True, num_workers=8, pin_memory=True)
-    valid_loader = DataLoader(valid_dataset, batch_size=1, shuffle=False, num_workers=4, pin_memory=True)
+    train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True, num_workers=8)
+    valid_loader = DataLoader(valid_dataset, batch_size=1, shuffle=False, num_workers=4)
 
     # #### Visualize resulted augmented images and masks
     if True:
@@ -325,6 +337,13 @@ def main():
     crop_size = (256, 64)  
     crop_size = (128, 64)  
 
+
+    # HICFA MASK Segmenation
+    data_dir = '/home/gbugaj/devio/unet-denoiser/data_hicfa_mask'
+    # data_dir = '/home/greg/dataset/cvat/task_checkboxes_2021_10_18/output_split'
+    pad_size = (1792, 2494) # WxH
+    crop_size = (256, 256)  
+
     train_loader, test_loader = build_dataset(data_dir, pad_size, crop_size)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
     print(f'device  : {device}')
@@ -341,8 +360,8 @@ def main():
         best_acc = 0
         start_epoch = -1
 
-    net = torch.load('./best_model.pth', map_location=DEVICE)
-    # net = build_model(args, device, device_ids=[0], ckpt=ckpt)
+    # net = torch.load('./best_model.pth', map_location=DEVICE)
+    net = build_model(args, device, device_ids=[0], ckpt=ckpt)
 
     # print(__net.module.state_dict())
     # net.load_state_dict(__net.module.state_dict())
