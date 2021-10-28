@@ -179,7 +179,9 @@ for i in tqdm(range(len(test_dataset))):
     h = gt_mask.shape[0]
 
     debug_img = get_debug_image(h, w, image_vis, pr_mask)
-    img_path = '/tmp/segmentation-mask/{}.png'.format(i)
-    cv2.imwrite(img_path, debug_img)
+    
+    cv2.imwrite('/tmp/segmentation-mask/{}_debug.png'.format(i), debug_img)
+    cv2.imwrite('/tmp/segmentation-mask/{}_src.png'.format(i), image_vis)
+    cv2.imwrite('/tmp/segmentation-mask/{}_mask.png'.format(i), pr_mask)
     
 

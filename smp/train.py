@@ -198,7 +198,7 @@ def build_dataset(data_dir, pad_size, crop_size):
         size=pad_size
     )
 
-    train_loader = DataLoader(train_dataset, batch_size=2, shuffle=True, num_workers=8)
+    train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=8)
     valid_loader = DataLoader(valid_dataset, batch_size=1, shuffle=False, num_workers=4)
 
     # #### Visualize resulted augmented images and masks
@@ -340,9 +340,10 @@ def main():
 
     # HICFA MASK Segmenation
     data_dir = '/home/gbugaj/devio/unet-denoiser/data_hicfa_mask'
+    data_dir = '/home/gbugaj/devio/unet-denoiser/data_hicfa_mask_clean'
     # data_dir = '/home/greg/dataset/cvat/task_checkboxes_2021_10_18/output_split'
     pad_size = (1792, 2494) # WxH
-    crop_size = (256, 128)  
+    crop_size = (256, 256)  
 
     train_loader, test_loader = build_dataset(data_dir, pad_size, crop_size)
     device = 'cuda' if torch.cuda.is_available() else 'cpu'
@@ -450,7 +451,5 @@ if __name__ == '__main__':
     seed_everything(121)
     main()        
 
-    # 0.9843019049371305
-    # 0.9848774707497067
-    # 0.9851496653940202
-    # 0.9879640829024
+    # 0.994728291521267
+    # 0.99457467088894

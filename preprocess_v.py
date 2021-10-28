@@ -71,23 +71,17 @@ def main(real_img, fake_img):
     real = cv2.imread(real_img, cv2.IMREAD_GRAYSCALE)
     fake = cv2.imread(fake_img, cv2.IMREAD_GRAYSCALE)
 
-    real = cv2.cvtColor(real, cv2.COLOR_GRAY2BGR)
-    fake = cv2.cvtColor(fake, cv2.COLOR_GRAY2BGR)
-
     print(real.shape)
     print(fake.shape)
 
-    blur_mask = cv2.GaussianBlur(fake, (5, 5), 0)
-    # blur_mask = apply_filter(blur_mask)
-    blur_mask[blur_mask >= 180] = [255]
-    # blended_with_mask = blend_with_mask_matrix(real, fake, blur_mask)
+    blended_img = 255 - cv2.bitwise_xor(real, fake)
+    diff_img =  255 -  cv2.bitwise_xor(fake, blended_img)
 
-    imwrite('/home/gbugaj/tmp/hicfa_mask/blur_mask.png', blur_mask)
-    blended = cv2.addWeighted(blur_mask, 1, real, 1, 0)
-    blended[blended >= 125] = [255]
+    # blended = cv2.addWeighted(diff_img, .5,  blended_img, 1, 0)
+    # blended[blended >= 125] = [255]
 
-    imwrite('/home/gbugaj/tmp/hicfa_mask/blended.png', blended)
-    # imwrite('/home/gbugaj/tmp/hicfa_mask/blended_with_mask.png', blended_with_mask)
+    imwrite('/tmp/segmentation-mask/blended_img.png', blended_img)
+    imwrite('/tmp/segmentation-mask/diff_img.png', diff_img)
 
 def process(img_path):
     work_dir = '/tmp/form-segmentation'
@@ -109,8 +103,8 @@ if __name__ == '__main__':
     # process(os.path.expanduser('~/tmp/hicfa_mask/final.png'))
 
     if True:
-        main(os.path.expanduser('~/tmp/hicfa_mask/v2/PID_10_5_0_3101.original_real.png'),
+        main(os.path.expanduser('/tmp/segmentation-mask/0_src.png'),
              os.path.expanduser(
-                 '~/tmp/hicfa_mask/v2/PID_10_5_0_3101.original_fake.png'),
+                 '/tmp/segmentation-mask/0_mask.png'),
              # ,
              )
