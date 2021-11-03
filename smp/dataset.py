@@ -116,8 +116,8 @@ class Dataset(BaseDataset):
             return new_w, new_h
         
         size = self.size
-        long_side = size[0]
-        h = size[1]
+        long_side = size[0] // 2
+        h = size[1] // 2
         w  = long_side
 
         if False and np.random.choice([0, 0], p = [0.5, 0.5]) :
@@ -174,4 +174,4 @@ class Dataset(BaseDataset):
         return image, mask
 
     def __len__(self):
-        return len(self.ids_a) # // 4
+        return len(self.ids_a)

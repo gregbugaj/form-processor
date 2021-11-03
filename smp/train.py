@@ -45,8 +45,8 @@ def get_training_augmentation(pad_size, crop_size):
         albu.PadIfNeeded(min_height=pad_size[1], min_width=pad_size[0], always_apply=True, border_mode=0),
         albu.RandomCrop(height=crop_size[1], width=crop_size[0], always_apply=True),
 
-        albu.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.2, rotate_limit=5, p=0.5, border_mode=cv2.BORDER_CONSTANT, always_apply=False),
-        albu.ImageCompression(6, 10, p=0.5, always_apply=False),
+        # albu.ShiftScaleRotate(shift_limit=0.0625, scale_limit=0.2, rotate_limit=5, p=0.5, border_mode=cv2.BORDER_CONSTANT, always_apply=False),
+        # albu.ImageCompression(6, 10, p=0.5, always_apply=False),
 
         # albu.OneOf(
         #     [
@@ -130,16 +130,17 @@ def build_model(args, device, device_ids=[0], ckpt=None):
         decoder_attention_type='scse',
         decoder_use_batchnorm = True,
     )    
-    
-    net = smp.Unet3Plus(
-        encoder_name=ENCODER, 
-        encoder_weights=ENCODER_WEIGHTS, 
-        classes=len(CLASSES), 
-        activation=ACTIVATION,
-        decoder_attention_type='scse',
-        decoder_use_batchnorm = True,
-    )
-    
+
+    if True:    
+        net = smp.Unet3Plus(
+            encoder_name=ENCODER, 
+            encoder_weights=ENCODER_WEIGHTS, 
+            classes=len(CLASSES), 
+            activation=ACTIVATION,
+            decoder_attention_type='scse',
+            decoder_use_batchnorm = True,
+        )
+        
     # net = smp.DeepLabV3Plus(
     #     encoder_name=ENCODER, 
     #     encoder_weights=None, #ENCODER_WEIGHTS, 
@@ -198,7 +199,7 @@ def build_dataset(data_dir, pad_size, crop_size):
         size=pad_size
     )
 
-    train_loader = DataLoader(train_dataset, batch_size=1, shuffle=True, num_workers=8)
+    train_loader = DataLoader(train_dataset, batch_size=4, shuffle=True, num_workers=8)
     valid_loader = DataLoader(valid_dataset, batch_size=1, shuffle=False, num_workers=4)
 
     # #### Visualize resulted augmented images and masks
@@ -341,6 +342,7 @@ def main():
     # HICFA MASK Segmenation
     data_dir = '/home/gbugaj/devio/unet-denoiser/data_hicfa_mask'
     data_dir = '/home/gbugaj/devio/unet-denoiser/data_hicfa_mask_clean'
+    data_dir = '/home/greg/dev/unet-denoiser/data_hicfa_text'
     # data_dir = '/home/greg/dataset/cvat/task_checkboxes_2021_10_18/output_split'
     pad_size = (1792, 2494) # WxH
     crop_size = (256, 256)  
@@ -361,8 +363,8 @@ def main():
         best_acc = 0
         start_epoch = -1
 
-    net = torch.load('./best_model.pth', map_location=DEVICE)
-    # net = build_model(args, device, device_ids=[0], ckpt=ckpt)
+    # net = torch.load('./best_model.pth', map_location=DEVICE)
+    net = build_model(args, device, device_ids=[0], ckpt=ckpt)
 
     # print(__net.module.state_dict())
     # net.load_state_dict(__net.module.state_dict())

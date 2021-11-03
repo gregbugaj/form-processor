@@ -5,14 +5,18 @@ import cv2
 from tqdm import tqdm
 from skimage.metrics import structural_similarity as compare_ssim
 
+from form.form_alignment import FormAlignment
+
 from boxes.box_processor import BoxProcessor
 from form.icr_processor import IcrProcessor
+from utils.utils import current_milli_time
 
 
 def imwrite(path, img):
     try:
         cv2.imwrite(path, img)
     except Exception as ident:
+        raise ident
         print(ident)
 
 
@@ -31,19 +35,6 @@ def unsharp_mask(image, kernel_size=(5, 5), sigma=1.0, amount=1.0, threshold=0):
 
 def apply_filter(src_img):
     img = src_img.copy()
-    # blur = cv2.blur(img,(5,5))
-    # blur0= cv2.medianBlur(blur,5)
-    # blur1= cv2.GaussianBlur(blur0,(5,5),0)
-    # blur2= cv2.bilateralFilter(blur1,9,75,75)
-
-    # kernel = np.array([[-1,-1,-1], [-1,9,-1], [-1,-1,-1]])
-    # im = cv2.filter2D(blur2, -1, kernel)
-    # im2 = cv2.filter2D(src_img, -1, kernel)
-
-    # sharpened_image = unsharp_mask(blur2)
-    # sharpened_image2 = unsharp_mask(src_img)
-    # blurX= cv2.GaussianBlur(sharpened_image2,(5,5),0)
-
     return unsharp_mask(img, kernel_size=(5, 5), sigma=1.0, amount=0, threshold=0)
 
 
@@ -83,7 +74,7 @@ def main(real_img, fake_img):
     imwrite('/tmp/segmentation-mask/blended_img.png', blended_img)
     imwrite('/tmp/segmentation-mask/diff_img.png', diff_img)
 
-def process(img_path):
+def process__(img_path):
     work_dir = '/tmp/form-segmentation'
 
     snippet = cv2.imread(img_path)
@@ -96,15 +87,44 @@ def process(img_path):
     icr = IcrProcessor(work_dir)
     icr.recognize(id, key, snippet, boxes, img_fragments, lines)
 
+def process(img_dir):
+    import glob
+    work_dir='/tmp/segmentation-mask'
+    dir_out='/tmp/segmentation-mask/all'
+    segmenter = FormAlignment(work_dir)
+
+    for _path in glob.glob(os.path.join(img_dir,'*.*')):
+        try:
+            kid = _path.split('/')[-1]
+            print(kid)
+            img_path = os.path.join(img_dir, _path)
+            image = cv2.imread(img_path)
+            m0 = current_milli_time()
+            
+            m0 = current_milli_time()
+            segmask = segmenter.align(kid, image)
+            
+            segmask_path = os.path.join(dir_out, "%s.png" % (kid))
+            print(segmask_path)
+            
+            imwrite(segmask_path, segmask)
+            m1 = current_milli_time()- m0
+            print('Time {} ms'.format(m1))
+
+            # break
+        except Exception as ident:
+            print(ident)
+
 
 if __name__ == '__main__':
+
+    process(os.path.expanduser('~/dataset/data-hipa/forms/hcfa-statefarm'))
 
     # process(os.path.expanduser('~/tmp/hicfa_mask/blended.png'))
     # process(os.path.expanduser('~/tmp/hicfa_mask/final.png'))
 
-    if True:
-        main(os.path.expanduser('/tmp/segmentation-mask/0_src.png'),
-             os.path.expanduser(
-                 '/tmp/segmentation-mask/0_mask.png'),
-             # ,
-             )
+    # if False:
+    #     main(os.path.expanduser('/tmp/segmentation-mask/0_src.png'),
+    #          os.path.expanduser(
+    #              '/tmp/segmentation-mask/0_mask.png')
+    #     )
