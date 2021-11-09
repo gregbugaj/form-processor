@@ -11,18 +11,25 @@ from form.icr_processor import IcrProcessor
 from form.segmenter import FormSegmeneter
 from utils.utils import current_milli_time
 from utils.visualize import visualize
+from form.form_alignment import FormAlignment
+
+from boxes.box_processor import BoxProcessor
+from form.icr_processor import IcrProcessor
+from utils.utils import current_milli_time
+
 
 def imwrite(path, img):
     try:
         cv2.imwrite(path, img)
     except Exception as ident:
+        raise ident
         print(ident)
-
 
 def blend_to_text(real_img, fake_img):
     """
         Blend real and fake(generated) images together to generate extracted text
     """
+
     print(f'real_img : {real_img}')
     print(f'fake_img : {fake_img}')
 
@@ -85,13 +92,41 @@ def eval_dir(img_dir):
 
         stacked = np.hstack((real, fake, blended_img))
         image_process_path = f'/tmp/segmentation-mask/stacked_{kid}.tif'
-        imwrite(image_process_path, blended_img)
+        imwrite(image_process_path, stacked)
 
         # process('/tmp/segmentation-mask/PID_10_5_0_155061_real.png', image_process_path)
         # process('/tmp/segmentation-mask/PID_10_5_0_154648_real.png', '/tmp/segmentation-mask/PID_10_5_0_154648_real.png')
         process('/tmp/segmentation-mask/PID_10_5_0_155061_real.png', '/tmp/segmentation-mask/PID_10_5_0_155061_real.png')
 
         break
+
+def process(img_dir):
+    import glob
+    work_dir='/tmp/segmentation-mask'
+    dir_out='/tmp/segmentation-mask/all'
+    segmenter = FormAlignment(work_dir)
+
+    for _path in glob.glob(os.path.join(img_dir,'*.*')):
+        try:
+            kid = _path.split('/')[-1]
+            print(kid)
+            img_path = os.path.join(img_dir, _path)
+            image = cv2.imread(img_path)
+            m0 = current_milli_time()
+            
+            m0 = current_milli_time()
+            segmask = segmenter.align(kid, image)
+            
+            segmask_path = os.path.join(dir_out, "%s.png" % (kid))
+            print(segmask_path)
+            
+            imwrite(segmask_path, segmask)
+            m1 = current_milli_time()- m0
+            print('Time {} ms'.format(m1))
+
+            # break
+        except Exception as ident:
+            print(ident)
 
 
 if __name__ == '__main__':
@@ -109,5 +144,3 @@ if __name__ == '__main__':
              os.path.expanduser(
                  '/tmp/segmentation-mask/PID_10_5_0_3101.original_fake.png'),
              )
-
-            

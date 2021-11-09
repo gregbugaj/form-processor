@@ -32,10 +32,13 @@ DEVICE = 'cpu'
 
 
 # load best saved checkpoint
-checkpoint = torch.load('../smp/best_model.pth')
+# checkpoint = torch.load('../smp/best_model@0.9914567287977759.pth', map_location=torch.device(DEVICE))
+checkpoint = torch.load('../smp/best_model.pth', map_location=torch.device(DEVICE))
+
 # checkpoint = torch.load('/home/greg/dev/form-processor/smp/best_model.pth')
 best_model = checkpoint.to(DEVICE)
 best_model = best_model.module # This is required as we are wrapping th network in DataParallel
+best_model.eval()
 
 # create segmentation model with pretrained encoder
 preprocessing_fn = smp.encoders.get_preprocessing_fn(ENCODER, ENCODER_WEIGHTS)
@@ -59,8 +62,11 @@ y_test_dir = os.path.join(DATA_DIR, 'mask')
 DATA_DIR = '/home/gbugaj/data/training/optical-mark-recognition/hicfa/task_checkboxes-2021_10_18_16_09_24-cvat_for_images_1.1/output_split/test'
 # DATA_DIR = '/home/greg/dataset/cvat/task_checkboxes_2021_10_18/output_split/test'
 DATA_DIR = '/home/gbugaj/devio/unet-denoiser/data_hicfa_mask/test'
+DATA_DIR = '/home/greg/dev/unet-denoiser/data_hicfa_text/test'
+# DATA_DIR = '/home/greg/dev/pytorch-CycleGAN-and-pix2pix/datasets/hicfa_mask'
 x_test_dir = os.path.join(DATA_DIR, 'image')
 y_test_dir = os.path.join(DATA_DIR, 'mask')    
+
 
 
 # helper function for data visualization
@@ -154,6 +160,8 @@ def get_debug_image(h, w, img, mask):
     return debug_img
 
 
+
+
 for i in tqdm(range(len(test_dataset))):
     n = np.random.choice(len(test_dataset))
     n = i
@@ -166,7 +174,12 @@ for i in tqdm(range(len(test_dataset))):
     print(image.shape)
 
     x_tensor = torch.from_numpy(image).to(DEVICE).unsqueeze(0)
-    pr_mask = best_model.predict(x_tensor)
+    
+    with torch.no_grad():
+        pr_mask = best_model(x_tensor)
+    # pr_mask = best_model.predict(x_tensor)
+    
+    continue
     pr_mask = (pr_mask.squeeze().cpu().numpy().round())
  
     # pr_mask = 255-pr_mask*255
