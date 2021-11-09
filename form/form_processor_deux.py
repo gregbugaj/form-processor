@@ -240,17 +240,18 @@ class FormProcessor:
                     snippet = heuristics_snippet
                     snippet_margin = heuristics_snippet
                 else:
+                
+                    # apply margin to the box and snippet                
+                    seg_box = [max(0, box[0]+L), box[1], box[2], box[3]+B]
+                    snippet_margin = img[seg_box[1]:seg_box[1]+seg_box[3], seg_box[0]:seg_box[0]+seg_box[2]]
+                    box = seg_box
+
                     # if we don't have a segmenation specified then we skip it
                     if seg_name == '':
                         log.info('[%s] [%s] Skipping segmenation', docId, field)
                     else:
                         m0 = current_milli_time()
-                        # apply margin to the box and snippet                
-                        seg_box = [max(0, box[0]+L), box[1], box[2], box[3]+B]
-                        snippet_margin = img[seg_box[1]:seg_box[1]+seg_box[3], seg_box[0]:seg_box[0]+seg_box[2]]
-                        box = seg_box
                         snippet = field_processor.process(docId, field, snippet_margin)
-
                         m1 = current_milli_time()
                         log.info('[%s] [%s] Field processor time : %s(ms)', docId, field, m1-m0)
 

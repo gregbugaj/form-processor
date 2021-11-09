@@ -121,7 +121,7 @@ class FieldProcessor:
     def __init__(self, work_dir, models:dict = None) -> None:
         print("Initializing Field processor")
         if models == None:
-            raise Exception('Invalid argument exception for modeld')
+            raise Exception('Invalid argument exception for models')
         self.work_dir = work_dir 
         self.models = models
         self.store = {}

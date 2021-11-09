@@ -9,7 +9,7 @@
         "format": []
       },
       "margin":"-250,-10,250,10",
-      "segmenter": "SMP_HCFA21",
+      "segmenter": "",
       "text_model": "ALPHA_NUMERIC"
     },
     
@@ -21,8 +21,7 @@
         "format": []
       },
       "margin":"-30,0,0,20",
-      "segmenterPIX": "PIX_HCFA02",
-      "segmenter": "SMP_HCFA02",
+      "segmenter": "",
       "text_model": "ALPHA_NUMERIC"
     },    
     
