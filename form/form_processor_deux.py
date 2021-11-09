@@ -165,10 +165,10 @@ class FormProcessor:
             docId, segment_path)
 
         stacked = np.hstack((real_img, fake_img, blended_img))
-        image_process_path = f'/tmp/segmentation-mask/stacked_{docId}.png'
+        image_process_path = os.path.join(debug_dir, f'stacked_{docId}.png')
         imwrite(image_process_path, stacked)
         
-        seg_fragments, img, segmask = segmenter.segment(docId, segment_path)
+        seg_fragments, img, segmask = segmenter.segment(docId, segment_path, blended_img)
 
         img = blended_img
         overlay_img = blended_img

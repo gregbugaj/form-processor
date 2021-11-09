@@ -395,7 +395,7 @@ class FormSegmeneter:
         imwrite(save_path_overlay, img)
         viewImage(img, 'overlay')
 
-    def segment(self, id:str, img_path:str):
+    def segment(self, id:str, img_path:str, snippet_img = None):
         """
             Form segmentation 
         """
@@ -454,6 +454,11 @@ class FormSegmeneter:
         hsvmap = config['field_hsv_ranges']
         fragments = dict()
 
+        if np.array(snippet_img).size == 0:
+            snippet_src = img
+        else:
+            snippet_src = snippet_img
+
         for fob in hsvmap:
             print('Processing  : {}'.format(fob))
             lkey = 1
@@ -465,7 +470,7 @@ class FormSegmeneter:
             # it is possible to get bad segmask
             if box is None:
                 continue
-            snippet = img[box[1]:box[1]+box[3], box[0]:box[0]+box[2]]
+            snippet = snippet_src[box[1]:box[1]+box[3], box[0]:box[0]+box[2]]
             
             pil_snippet = Image.fromarray(snippet)
             pil_snippet = make_power_2(pil_snippet, base=4, method=Image.BICUBIC)
