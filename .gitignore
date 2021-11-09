@@ -1,19 +1,17 @@
 icr/log_validation_result.txt
-models/craft/
 result/
 icr/data_lmdb_release/
 icr/saved_models/
 
 outputs/
-models/
-form/segmenter/
-
-smp/*.pth
+# models/
 
 # SMP
 smp/best_model.pth
 smp/checkpoint/
 smp/curve/
+smp/*.pth
+
 
 # processor
 assets-gen
@@ -22,6 +20,10 @@ assets-private
 models/icr/
 models/segmenter/
 models/text_detector/
+models/craft/
+models/omr/
+models/orientation/
+models/overlay
 
 env
 log_eval_result.txt
