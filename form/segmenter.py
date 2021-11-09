@@ -1,5 +1,7 @@
 # Add parent to the search path so we can reference the module here without throwing and exception 
 import os, sys
+
+from utils.utils import make_power_2
 sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
 from utils.image_utils import read_image
 
@@ -91,22 +93,6 @@ def paste_fragment(overlay, fragment, pos=(0,0)):
     fragment_pil = Image.fromarray(fragment)
     overlay.paste(fragment_pil, pos)
     
-
-def make_power_2(img, base, method=Image.BICUBIC):
-    ow, oh = img.size
-    h = int(round(oh / base) * base)
-    w = int(round(ow / base) * base)
-    if h == oh and w == ow:
-        return img
-
-    if False:     
-        print("The image size needs to be a multiple of 4. "
-                "The loaded image size was (%d, %d), so it was adjusted to "
-                "(%d, %d). This adjustment will be done to all images "
-                "whose sizes are not multiples of 4" % (ow, oh, w, h))
-
-    return img.resize((w, h), method)
-
 class FormSegmeneter:
     def __init__(self, work_dir):
         self.work_dir = work_dir
@@ -436,6 +422,11 @@ class FormSegmeneter:
         # viewImage(img, 'Source Image') 
         font = cv2.FONT_HERSHEY_SIMPLEX
         segmask = self.__extract_segmenation_mask(img, dataroot_dir, work_dir, debug_dir)
+        # Unable to segment return empty mask
+        if np.array(segmask).size == 0:
+            print('Unable to segment image')
+            return None, None, None
+
         # viewImage(segmask, 'segmask') 
         # converting from BGR to HSV color space
         hsv = cv2.cvtColor(segmask, cv2.COLOR_BGR2HSV)
@@ -460,8 +451,6 @@ class FormSegmeneter:
         with open(config_path) as f:
             config = json.load(f)
 
-        cmap = config['colors']
-        fmap = config['fields']
         hsvmap = config['field_hsv_ranges']
         fragments = dict()
 

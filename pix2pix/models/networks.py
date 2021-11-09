@@ -1,4 +1,7 @@
+from models.loss import HingeLoss, LeakyHingeLoss
+from models.networks_hd import GlobalGenerator, LocalEnhancer, MultiscaleDiscriminator
 from numpy import mod
+import numpy as np
 import torch
 import torch.nn as nn
 from torch.nn import init
@@ -6,48 +9,7 @@ import functools
 from torch.optim import lr_scheduler
 import torch.nn.functional as F
 import segmentation_models_pytorch as smp
-
-ALPHA=.7
-BETA=.3
-GAMMA=2
-
-class FocalTverskyLoss(nn.Module):
-    def __init__(self, weight=None, size_average=True):
-        super(FocalTverskyLoss, self).__init__()
-
-    def forward(self, inputs, targets, smooth=1, alpha=ALPHA, beta=BETA, gamma=GAMMA):
-        
-        # comment out if your model contains a sigmoid or equivalent activation layer
-        # inputs = F.sigmoid(inputs)       
-        
-        #flatten label and prediction tensors
-        inputs = inputs.view(-1)
-        targets = targets.view(-1)
-        
-        #True Positives, False Positives & False Negatives
-        TP = (inputs * targets).sum()    
-        FP = ((1-targets) * inputs).sum()
-        FN = (targets * (1-inputs)).sum()
-        
-        Tversky = (TP + smooth) / (TP + alpha*FP + beta*FN + smooth)  
-        FocalTversky = (1 - Tversky)**gamma
-                       
-        return FocalTversky
-
-class CustomLoss(nn.Module):
-    def __init__(self, weight=None, size_average=True):
-        super(CustomLoss, self).__init__()
-        self.dice_loss = smp.losses.DiceLoss(mode='binary')
-        self.focal_loss = FocalTverskyLoss()
-        self.__name__ = 'custom_loss'
-
-    def forward(self, inputs, targets):
-        dice_loss = self.dice_loss(inputs, targets)
-        focal_loss = self.focal_loss(inputs, targets)
-        criterion = dice_loss + (1 * focal_loss)
-                       
-        return criterion  
-
+import torch.nn.utils.spectral_norm as spectral_norm
 
 ###############################################################################
 # Helper Functions
@@ -165,7 +127,7 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
         input_nc (int) -- the number of channels in input images
         output_nc (int) -- the number of channels in output images
         ngf (int) -- the number of filters in the last conv layer
-        netG (str) -- the architecture's name: resnet_9blocks | resnet_6blocks | unet_256 | unet_128
+        netG (str) -- the architecture's name: resnet_9blocks | resnet_6blocks | unet_256 | unet_256_spectral | unet_128
         norm (str) -- the name of normalization layers used in the network: batch | instance | none
         use_dropout (bool) -- if use dropout layers.
         init_type (str)    -- the name of our initialization method.
@@ -196,57 +158,20 @@ def define_G(input_nc, output_nc, ngf, netG, norm='batch', use_dropout=False, in
         net = UnetGenerator(input_nc, output_nc, 7, ngf, norm_layer=norm_layer, use_dropout=use_dropout)
     elif netG == 'unet_256':
         net = UnetGenerator(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout)
+    elif netG == 'unet_128_spectral':
+        net = UnetGeneratorWithSpectralNorm(input_nc, output_nc, 7, ngf, norm_layer=norm_layer, use_dropout=use_dropout)      
+    elif netG == 'unet_256_spectral':
+        net = UnetGeneratorWithSpectralNorm(input_nc, output_nc, 8, ngf, norm_layer=norm_layer, use_dropout=use_dropout)      
     elif netG == 'unet_512':
         net = UnetGenerator(input_nc, output_nc, 9, ngf, norm_layer=norm_layer, use_dropout=use_dropout)# 512
     elif netG == 'unet_1024':
         net = UnetGenerator(input_nc, output_nc, 10, ngf, norm_layer=norm_layer, use_dropout=use_dropout)#1024  
-    elif netG == 'unet_pp':
-        net = UnetPlusPlusGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer, use_dropout=use_dropout)
+    elif netG == 'global':
+        net = GlobalGenerator(input_nc, output_nc, ngf, norm_layer=norm_layer)#
+        # net = LocalEnhancer(input_nc, output_nc, ngf, norm_layer=norm_layer)#
     else:
         raise NotImplementedError('Generator model name [%s] is not recognized' % netG)
     return init_net(net, init_type, init_gain, gpu_ids)
-
-class UnetPlusPlusGenerator(nn.Module):
-    """Create a UnetPlusPlus-based generator"""
-
-    def __init__(self, input_nc, output_nc, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False):
-        """Construct a UnetPlusPlus generator
-        Parameters:
-            input_nc (int)  -- the number of channels in input images
-            output_nc (int) -- the number of channels in output images
-            ngf (int)       -- the number of filters in the last conv layer
-            norm_layer      -- normalization layer
-        """
-        super(UnetPlusPlusGenerator, self).__init__()
-        # construct unet structure
-        print('==> Building unet plus plus..')
-
-        # basic constants
-        ENCODER = 'resnet34' #vgg16' #'resnet34'
-        ENCODER_WEIGHTS = 'imagenet'
-        ACTIVATION = 'sigmoid' # 'sigmoid' #, 'sigmoid' #'sigmoid' # could be None for logits or 'softmax2d' for multiclass segmentation
-        DEVICE = 'cuda'
-        ENCODER_WEIGHTS = None
-
-        aux_params = {}
-        aux_params['activation'] = 'sigmoid'
-        aux_params['classes'] = 1
-
-        self.model = smp.UnetPlusPlus(
-            encoder_name=ENCODER, 
-            encoder_weights=ENCODER_WEIGHTS, 
-            classes=1, 
-            activation=ACTIVATION,
-            decoder_attention_type='scse',
-            in_channels = input_nc,
-            # decoder_channels = (ngf*5, ngf*4, ngf*3, ngf*2, ngf*1),
-            decoder_use_batchnorm = True,
-        )
-        # net = net.to(device)
-
-    def forward(self, input):
-        """Standard forward"""
-        return self.model(input)
 
 
 def define_D(input_nc, ndf, netD, n_layers_D=3, norm='batch', init_type='normal', init_gain=0.02, gpu_ids=[]):
@@ -286,10 +211,15 @@ def define_D(input_nc, ndf, netD, n_layers_D=3, norm='batch', init_type='normal'
         net = NLayerDiscriminator(input_nc, ndf, n_layers=3, norm_layer=norm_layer)
     elif netD == 'n_layers':  # more options
         net = NLayerDiscriminator(input_nc, ndf, n_layers_D, norm_layer=norm_layer)
+    elif netD == 'n_layers_spectral':
+        net = NLayerDiscriminatorWithSpectralNorm(input_nc, ndf, n_layers_D)        
     elif netD == 'pixel':     # classify if each pixel is real or fake
-        net = PixelDiscriminator(input_nc, ndf, norm_layer=norm_layer)
+        net = PixelDiscriminator(input_nc, ndf, norm_layer=norm_layer)    
+    elif netD == 'n_layers_multi':     
+        net = MultiscaleDiscriminator(input_nc, ndf, norm_layer=norm_layer)
     else:
         raise NotImplementedError('Discriminator model name [%s] is not recognized' % netD)
+
     return init_net(net, init_type, init_gain, gpu_ids)
 
        
@@ -303,7 +233,7 @@ class GANLoss(nn.Module):
     that has the same size as the input.
     """
 
-    def __init__(self, gan_mode, target_real_label=1.0, target_fake_label=0.0):
+    def __init__(self, gan_mode, target_real_label=1.0, target_fake_label=0.0, tensor=torch.FloatTensor):
         """ Initialize the GANLoss class.
 
         Parameters:
@@ -317,6 +247,10 @@ class GANLoss(nn.Module):
         super(GANLoss, self).__init__()
         self.register_buffer('real_label', torch.tensor(target_real_label))
         self.register_buffer('fake_label', torch.tensor(target_fake_label))
+
+        self.zero_tensor = None
+        self.Tensor = tensor
+
         self.gan_mode = gan_mode
         if gan_mode == 'lsgan':
             self.loss = nn.MSELoss()
@@ -324,8 +258,9 @@ class GANLoss(nn.Module):
             self.loss = nn.BCEWithLogitsLoss()
         elif gan_mode in ['wgangp']:
             self.loss = None
-        elif gan_mode == 'focus':
-            self.loss = CustomLoss()
+        elif gan_mode == 'hinge':
+            # self.loss = LeakyHingeLoss()
+            self.loss = HingeLoss()
         else:
             raise NotImplementedError('gan mode %s not implemented' % gan_mode)
 
@@ -346,7 +281,13 @@ class GANLoss(nn.Module):
             target_tensor = self.fake_label
         return target_tensor.expand_as(prediction)
 
-    def __call__(self, prediction, target_is_real):
+    def get_zero_tensor(self, input):
+        if self.zero_tensor is None:
+            self.zero_tensor = self.Tensor(1).fill_(0)
+            self.zero_tensor.requires_grad_(False)
+        return self.zero_tensor.expand_as(input).to('cuda')
+
+    def __call__(self, prediction, target_is_real, for_discriminator=True):
         """Calculate loss given Discriminator's output and grount truth labels.
 
         Parameters:
@@ -356,9 +297,21 @@ class GANLoss(nn.Module):
         Returns:
             the calculated loss.
         """
-        if self.gan_mode in ['lsgan', 'vanilla', 'focus']:
+        if self.gan_mode in ['lsgan', 'vanilla']:
             target_tensor = self.get_target_tensor(prediction, target_is_real)
             loss = self.loss(prediction, target_tensor)
+        elif self.gan_mode == 'hinge':
+            if for_discriminator:
+                if target_is_real:
+                    minval = torch.min(prediction - 1, self.get_zero_tensor(prediction))
+                    loss = -torch.mean(minval)
+                else:
+                    minval = torch.min(-prediction - 1, self.get_zero_tensor(prediction))
+                    loss = -torch.mean(minval)
+            else:
+                assert target_is_real, "The generator's hinge loss must be aiming for real"
+                loss = -torch.mean(prediction)
+            return loss
         elif self.gan_mode == 'wgangp':
             if target_is_real:
                 loss = -prediction.mean()
@@ -450,7 +403,7 @@ class ResnetGenerator(nn.Module):
             mult = 2 ** (n_downsampling - i)
 
             # GB : Trying to remove checkerboard artifacts
-            if True:
+            if False:
                  model += [
                      nn.Upsample(scale_factor = 2, mode='bilinear'),
                      nn.ReflectionPad2d(1),
@@ -719,3 +672,143 @@ class PixelDiscriminator(nn.Module):
     def forward(self, input):
         """Standard forward."""
         return self.net(input)
+
+
+class UnetGeneratorWithSpectralNorm(nn.Module):
+    """Create a Unet-based generator with Spectral Normalization"""
+
+    def __init__(self, input_nc, output_nc, num_downs, ngf=64, norm_layer=nn.BatchNorm2d, use_dropout=False):
+        """Construct a Unet generator
+        Parameters:
+            input_nc (int)  -- the number of channels in input images
+            output_nc (int) -- the number of channels in output images
+            num_downs (int) -- the number of downsamplings in UNet. For example, # if |num_downs| == 7,
+                                image of size 128x128 will become of size 1x1 # at the bottleneck
+            ngf (int)       -- the number of filters in the last conv layer
+            norm_layer      -- normalization layer
+        We construct the U-Net from the innermost layer to the outermost layer.
+        It is a recursive process.
+        """
+        super(UnetGeneratorWithSpectralNorm, self).__init__()
+        # construct unet structure
+        unet_block = UnetSkipConnectionBlockWithSpectralNorm(ngf * 8, ngf * 8, input_nc=None, submodule=None, norm_layer=norm_layer, innermost=True)  # add the innermost layer
+        for i in range(num_downs - 5):          # add intermediate layers with ngf * 8 filters
+            unet_block = UnetSkipConnectionBlockWithSpectralNorm(ngf * 8, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer, use_dropout=use_dropout)
+        # gradually reduce the number of filters from ngf * 8 to ngf
+        unet_block = UnetSkipConnectionBlockWithSpectralNorm(ngf * 4, ngf * 8, input_nc=None, submodule=unet_block, norm_layer=norm_layer)
+        unet_block = UnetSkipConnectionBlockWithSpectralNorm(ngf * 2, ngf * 4, input_nc=None, submodule=unet_block, norm_layer=norm_layer)
+        unet_block = UnetSkipConnectionBlockWithSpectralNorm(ngf, ngf * 2, input_nc=None, submodule=unet_block, norm_layer=norm_layer)
+        self.model = UnetSkipConnectionBlockWithSpectralNorm(output_nc, ngf, input_nc=input_nc, submodule=unet_block, outermost=True, norm_layer=norm_layer)  # add the outermost layer
+
+    def forward(self, input):
+        """Standard forward"""
+        return self.model(input)
+
+class UnetSkipConnectionBlockWithSpectralNorm(nn.Module):
+    """Defines the Unet submodule with skip connection and spectral normalization.
+        X -------------------identity----------------------
+        |-- downsampling -- |submodule| -- upsampling --|
+    """
+
+    def __init__(self, outer_nc, inner_nc, input_nc=None,
+                 submodule=None, outermost=False, innermost=False, norm_layer=nn.BatchNorm2d, use_dropout=False):
+        """Construct a Unet submodule with skip connections.
+        Parameters:
+            outer_nc (int) -- the number of filters in the outer conv layer
+            inner_nc (int) -- the number of filters in the inner conv layer
+            input_nc (int) -- the number of channels in input images/features
+            submodule (UnetSkipConnectionBlock) -- previously defined submodules
+            outermost (bool)    -- if this module is the outermost module
+            innermost (bool)    -- if this module is the innermost module
+            norm_layer          -- normalization layer
+            user_dropout (bool) -- if use dropout layers.
+        """
+        super(UnetSkipConnectionBlockWithSpectralNorm, self).__init__()
+        self.outermost = outermost
+        if type(norm_layer) == functools.partial:
+            use_bias = norm_layer.func == nn.InstanceNorm2d
+        else:
+            use_bias = norm_layer == nn.InstanceNorm2d
+        if input_nc is None:
+            input_nc = outer_nc
+        downconv = nn.utils.spectral_norm(nn.Conv2d(input_nc, inner_nc, kernel_size=4,
+                                                    stride=2, padding=1, bias=use_bias))
+        downrelu = nn.LeakyReLU(0.2, True)
+        downnorm = norm_layer(inner_nc)
+        uprelu = nn.ReLU(True)
+        upnorm = norm_layer(outer_nc)
+
+        if outermost:
+            upconv = nn.utils.spectral_norm(nn.ConvTranspose2d(inner_nc * 2, outer_nc,
+                                                            kernel_size=4, stride=2,
+                                                            padding=1))
+            down = [downconv]
+            up = [uprelu, upconv, nn.Tanh()]
+            model = down + [submodule] + up
+        elif innermost:
+            upconv = nn.utils.spectral_norm(nn.ConvTranspose2d(inner_nc, outer_nc,
+                                                            kernel_size=4, stride=2,
+                                                            padding=1, bias=use_bias))
+            down = [downrelu, downconv]
+            up = [uprelu, upconv, upnorm]
+            model = down + up
+        else:
+            upconv = nn.utils.spectral_norm(nn.ConvTranspose2d(inner_nc * 2, outer_nc,
+                                                            kernel_size=4, stride=2,
+                                                            padding=1, bias=use_bias))
+            down = [downrelu, downconv, downnorm]
+            up = [uprelu, upconv, upnorm]
+
+            if use_dropout:
+                model = down + [submodule] + up + [nn.Dropout(0.5)]
+            else:
+                model = down + [submodule] + up
+
+        self.model = nn.Sequential(*model)
+
+    def forward(self, x):
+        if self.outermost:
+            return self.model(x)
+        else:   # add skip connections
+            return torch.cat([x, self.model(x)], 1)        
+
+class NLayerDiscriminatorWithSpectralNorm(nn.Module):
+    """Defines a PatchGAN discriminator"""
+
+    def __init__(self, input_nc, ndf=64, n_layers=3):
+        """Construct a PatchGAN discriminator
+        Parameters:
+            input_nc (int)  -- the number of channels in input images
+            ndf (int)       -- the number of filters in the last conv layer
+            n_layers (int)  -- the number of conv layers in the discriminator
+            norm_layer      -- normalization layer
+        """
+        super(NLayerDiscriminatorWithSpectralNorm, self).__init__()
+        use_bias = True
+        kw = 4
+        padw = 1
+        sequence = [nn.utils.spectral_norm(nn.Conv2d(input_nc, ndf, kernel_size=kw, stride=2, padding=padw, bias=use_bias)), nn.LeakyReLU(0.2, True)]
+        nf_mult = 1
+        nf_mult_prev = 1
+        for n in range(1, n_layers):  # gradually increase the number of filters
+            nf_mult_prev = nf_mult
+            nf_mult = min(2 ** n, 8)
+            sequence += [
+                nn.utils.spectral_norm(nn.Conv2d(ndf * nf_mult_prev, ndf * nf_mult, kernel_size=kw, stride=2, padding=padw, bias=use_bias)),
+                nn.LeakyReLU(0.2, True)
+            ]
+
+        nf_mult_prev = nf_mult
+        nf_mult = min(2 ** n_layers, 8)
+        sequence += [
+            nn.utils.spectral_norm(nn.Conv2d(ndf * nf_mult_prev, ndf * nf_mult, kernel_size=kw, stride=1, padding=padw, bias=use_bias)),
+            nn.LeakyReLU(0.2, True)
+        ]
+
+        sequence += [nn.utils.spectral_norm(nn.Conv2d(ndf * nf_mult, 1, kernel_size=kw, stride=1, padding=padw, bias=use_bias))]  # output 1 channel prediction map
+        self.model = nn.Sequential(*sequence)
+
+    def forward(self, input):
+        """Standard forward."""
+        return self.model(input)            
+

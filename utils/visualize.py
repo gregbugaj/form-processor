@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 def visualize(imgpath=None, **images):
     """PLot images in one row."""
 
-    if True:
+    if False:
         return
 
     n = len(images)
@@ -32,4 +32,4 @@ def visualize(imgpath=None, **images):
     if imgpath:
         plt.savefig(imgpath, dpi=600)
 
-    plt.show()
+    # plt.show()

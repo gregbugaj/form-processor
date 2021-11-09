@@ -1,4 +1,5 @@
 
+from form import overlay
 from utils.image_utils import read_image
 from form.field_processor import FieldProcessor
 from form.form_alignment import FormAlignment
@@ -13,27 +14,41 @@ import glob
 from run import FormProcessor
 from boxes.box_processor import BoxProcessor
 from form.icr_processor import IcrProcessor
-
 from form.segmenter import FormSegmeneter
-
+from form.overlay import FormOverlay
 from form.optical_mark_recognition import OpticalMarkRecognition
 
+def imwrite(path, img):
+    try:
+        cv2.imwrite(path, img, [cv2.IMWRITE_JPEG_QUALITY, 100])
+    except Exception as ident:
+        print(ident)
 
 if __name__ == '__main__':
 
     work_dir='/tmp/form-segmentation'
     img_path='/home/greg/tmp/hicfa/PID_10_5_0_3100.original.tif'
-    img_path='/home/greg/dataset/data-hipa/forms/hcfa-allstate/269692_202006290005214_001.tif'
-    img_path='/tmp/form-segmentation/269692_202006290005214_001.tif/dataroot/aligned_segment.png'
-    img_path='/home/greg/tmp/aligned_segment_scaled.png'
-    img_path='/media/greg/XENSERVER-6/27ofStateFarm100/272943_0031516168746_001.tif'
-    img_path='/tmp/form-segmentation/aligned_segment.png'
-    img_path='/home/greg/dataset/data-hipa/forms/hcfa-allstate/269688_202006290005126_001.tif'
-    img_path='/home/greg/dataset/cvat/task_checkboxes_2021_10_18/output_split/test/image/269697_202006290005659_001_9.png'
-    img_path='/home/greg/dataset/cvat/task_checkboxes_2021_10_18/output_split/test/image/269697_202006290005659_001_9.png'
 
+    overlay_processor = FormOverlay(work_dir=work_dir)
+    img_dir = '/home/gbugaj/devio/pytorch-CycleGAN-and-pix2pix/results/hicfa_mask_pp/test_latest/images'
 
-    if True :
+    # for _path in glob.glob(os.path.join(img_dir,'*PID_10_5_0_3101_real*')  ):
+    for _path in glob.glob(os.path.join(img_dir,'*real*')):
+        try:
+            docId = _path.split('/')[-1].split('.')[0]
+            print(f'DocumentId : {docId}')
+            src_img_path = os.path.join(img_dir, _path)
+            real,fake,blended = overlay_processor.segment(docId, src_img_path)
+
+            stacked = np.hstack((real, fake, blended))
+            image_process_path = f'/tmp/segmentation-mask/stacked_{docId}.jpg'
+            imwrite(image_process_path, stacked)
+
+        except Exception as ident:
+            raise ident
+            print(ident)
+
+    if False :
         print('OMR Detection')
         omr = OpticalMarkRecognition(work_dir=work_dir)
         
@@ -94,10 +109,10 @@ if __name__ == '__main__':
 
         processor = FormProcessor(work_dir=work_dir, config=config, cuda=False)
         # for name in glob.glob('/home/greg/dev/assets-private/27ofStateFarm100/*.tif'):
-        for name in glob.glob('/media/greg/XENSERVER-6/PID_10_5_0_158875.tif'):
-        # for name in glob.glob('/home/greg/dataset/data-hipa/forms/hcfa-allstate/270175_202006300007819_001.tif'):
+        # for name in glob.glob('/home/gbugaj/data/private/HCFA-AllState/*.tif'):
         # for name in glob.glob('/home/greg/dataset/data-hipa/forms/hcfa-allstate/*.tif'):
-        # for name in glob.glob('/media/greg/XENSERVER-6/ImagesForPartAIssues/PID_10_5_0_155085.tif'):
+        # for name in glob.glob('/media/gbugaj/XENSERVER-6/ImagesForPartAIssues/*.tif'):
+        for name in glob.glob('/home/gbugaj/data/private/HCFA-StateFarm/*.tif'):
             try:
                 print(name)
                 results = processor.process(name)

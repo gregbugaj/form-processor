@@ -88,17 +88,23 @@ def process(input_dir, output_dir, phase):
     w = 1024
     h = 192   
     
-    # Segmentation Mask / OMR Mask
+    # Segmentation Mask
     w = 1700
     h = 2366
+
+    # Segmentation Mask
+    w = 1792
+    h = 2494
 
     def __process(segmap_path, target_path, i, total):
         print(f'Starting process {total}: {i}')
         segmap = cv2.imread(segmap_path)
         target = cv2.imread(target_path)
 
-        segmap = resize_image(segmap, (h, w), color=(255, 255, 255))                 
-        target = resize_image(target, (h, w), color=(255, 255, 255))                 
+        # no need to resize on this one
+        if False:
+            segmap = resize_image(segmap, (h, w), color=(255, 255, 255))                 
+            target = resize_image(target, (h, w), color=(255, 255, 255))                 
 
         # convert colorspace from OpenCV to PIL 
         segmap = cv2.cvtColor(segmap, cv2.COLOR_BGR2RGB)
@@ -122,8 +128,9 @@ def process(input_dir, output_dir, phase):
         sidebyside.paste(segmap, (w, 0))
         sidebyside.paste(target, (0, 0))
         
-        savepath = os.path.join(savedir, "%d.jpg" % i)
-        sidebyside.save(savepath, format='JPEG', subsampling=0, quality=100)
+        savepath = os.path.join(savedir, "%d.png" % i)
+        sidebyside.save(savepath, format='PNG', subsampling=0, quality=100)
+        # sidebyside.save(savepath, format='PNG', subsampling=0, quality=100)
 
         # data for cyclegan where the two images are stored at two distinct directories
         savepath = os.path.join(savedir + 'A', "%d_A.png" % i)
@@ -134,7 +141,7 @@ def process(input_dir, output_dir, phase):
         if i % (total // 10) == 0:
             print("%d / %d" %(i, total))
 
-    with ThreadPoolExecutor(max_workers=mp.cpu_count()//2) as executor:      
+    with ThreadPoolExecutor(max_workers=mp.cpu_count()) as executor:      
         for i, (segmap_path, target_path) in enumerate(zip(segmap_paths, target_paths)):
             executor.submit(__process, segmap_path, target_path, i, len(segmap_paths)) 
 

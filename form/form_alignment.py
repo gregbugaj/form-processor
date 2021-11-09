@@ -14,9 +14,6 @@ import numpy as np
 import segmentation_models_pytorch as smp
 import albumentations as albu
 
-from utils.resize_image import resize_image
-from utils.visualize import visualize
-
 import logging
 logging.basicConfig(format='%(asctime)s %(levelname)-8s %(message)s',
                     datefmt='%Y-%m-%d %H:%M:%S',

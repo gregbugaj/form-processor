@@ -156,7 +156,7 @@ class IcrProcessor:
             opt.SequenceModeling = 'BiLSTM'
             opt.Prediction = 'Attn'
             opt.saved_model = './models/icr/TPS-ResNet-BiLSTM-Attn-case-sensitive-ft/best_accuracy.pth'
-            opt.saved_model = './models/icr/TPS-ResNet-BiLSTM-Attn-case-sensitive-ft/best_norm_ED.pth'
+            # opt.saved_model = './models/icr/TPS-ResNet-BiLSTM-Attn-case-sensitive-ft/best_norm_ED.pth'
             opt.sensitive = True
             opt.imgH = 32
             opt.imgW = 100
@@ -167,7 +167,7 @@ class IcrProcessor:
             opt.output_channel = 512
             opt.hidden_size = 256
             opt.batch_max_length = 48
-            opt.batch_size = 2  # FIXME: setting batch size to 1 will cause "TypeError: forward() missing 2 required positional arguments: 'input' and 'text'"
+            opt.batch_size = 16  # FIXME: setting batch size to 1 will cause "TypeError: forward() missing 2 required positional arguments: 'input' and 'text'"
             opt.PAD = True
             opt.workers = 8
             opt.num_gpu = 0
