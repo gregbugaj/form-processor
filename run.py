@@ -75,7 +75,7 @@ def main(config_path, img_path, output_dir, work_dir, cuda):
 
 if __name__ == '__main__':
     args = parse_args()
-    args.img_src = '/media/gbugaj/XENSERVER-6/27ofStateFarm100/272943_0031516168746_001.tif'
+    args.img_src = '/media/greg/XENSERVER-6/27ofStateFarm100/272943_0031516168746_001.tif'
     args.work_dir = '/tmp/form-segmentation'
 
     args.config = './config.json'

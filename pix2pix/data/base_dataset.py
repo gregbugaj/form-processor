@@ -128,7 +128,7 @@ def __convert_3_channels(img):
 def __make_power_2(img, base, method=Image.BICUBIC):
     ow, oh = img.size
     h = int(round(oh / base) * base)
-    w = int(round(ow / base) * base)
+    w = int(round(ow / base) * base)    
     if h == oh and w == ow:
         return img
 

@@ -1,5 +1,14 @@
+import os
+import sys
 # Add parent to the search path so we can reference the module here without throwing and exception
+sys.path.append(os.path.join(os.path.dirname(os.path.realpath(__file__)), os.pardir))
+
+import time
+from shutil import copy, copyfile
+import numpy as np
+import cv2
 from PIL import Image
+
 from utils.utils import ensure_exists
 from utils.image_utils import imwrite, read_image, viewImage
 from pix2pix.util.util import tensor2im
@@ -7,16 +16,6 @@ from pix2pix.util.visualizer import save_images
 from pix2pix.models import create_model
 from pix2pix.data import create_dataset
 from pix2pix.options.test_options import TestOptions
-import time
-from shutil import copy, copyfile
-import numpy as np
-import cv2
-import os
-import sys
-
-sys.path.append(os.path.join(os.path.dirname(
-    os.path.realpath(__file__)), os.pardir))
-
 
 class FormOverlay:
     def __init__(self, work_dir, cuda: bool = False):
@@ -78,6 +77,7 @@ class FormOverlay:
             if False:
                 for label, im_data in visuals.items():
                     image_numpy = tensor2im(im_data)
+                    print(f'Tensor debug[{label}]: {image_numpy.shape}')
                     # Tensor is in RGB format OpenCV requires BGR
                     image_numpy = cv2.cvtColor(image_numpy, cv2.COLOR_RGB2BGR)
                     image_name = '%s_%s.png' % (name, label)
@@ -85,7 +85,7 @@ class FormOverlay:
                     imwrite(save_path, image_numpy)
                     viewImage(image_numpy, 'Tensor Image')
 
-            label = 'overlay'
+            label = 'fake'
             fake_im_data = visuals['fake']
             image_numpy = tensor2im(fake_im_data)
             # Tensor is in RGB format OpenCV requires BGR
@@ -95,6 +95,14 @@ class FormOverlay:
             # testing only
             imwrite(save_path, image_numpy)
             # viewImage(image_numpy, 'Prediction image')
+
+            # TODO : Figure out why after the forward pass it is possible 
+            # to have different sizes(transforms have not been applied).
+            # This is a work around for now
+
+            if img.shape != image_numpy.shape:
+                print(f'WARNING: overlay shapes do not match(adjusting): {img.shape} != {image_numpy.shape}')
+                return image_numpy[:img.shape[0], :img.shape[1], :]
 
             return image_numpy
 
@@ -122,6 +130,7 @@ class FormOverlay:
         """
             Form overlay segmentation 
         """
+        print(f'Creating overlay for : {img_path}')
         if not os.path.exists(img_path):
             raise Exception('File not found : {}'.format(img_path))
 
@@ -139,21 +148,21 @@ class FormOverlay:
         if not os.path.exists(dst_file_name):
             copyfile(img_path, dst_file_name)
 
-        img = cv2.imread(dst_file_name)
+        real_img = cv2.imread(dst_file_name)
         # viewImage(img, 'Source Image')
 
-        segmask = self.__extract_segmenation_mask(
-            img, dataroot_dir, work_dir, debug_dir)
+        fake_mask = self.__extract_segmenation_mask(
+            real_img, dataroot_dir, work_dir, debug_dir)
 
         # Unable to segment return empty mask
-        if np.array(segmask).size == 0:
-            print('Unable to segment image')
+        if np.array(fake_mask).size == 0:
+            print(f'Unable to segment image :{img_path}')
             return None, None
 
-        blended = self.blend_to_text(img, segmask)
+        blended = self.blend_to_text(real_img, fake_mask)
         # viewImage(segmask, 'segmask')
         tm = time.time_ns()
-        imwrite(os.path.join(debug_dir, 'overlay_{}.png'.format(tm)), segmask)
+        imwrite(os.path.join(debug_dir, 'overlay_{}.png'.format(tm)), fake_mask)
 
         # real, fake, blended
-        return img, segmask, blended
+        return real_img, fake_mask, blended

@@ -152,58 +152,42 @@ class FormProcessor:
         box_processor = self.box_processor
         icr_processor = self.icr_processor
         
+        # Align the document and prep it for processing
+        # Scaling the image here does not solve the issue of invalid size
         aligned_segment = form_align.align(docId, img_path)
-        
-        # # prep the image before processing
-        # # we do this here as first step otherwise we will have to handle this during 
-        # # different processing steps
         aligned_segment = make_power_2_cv2(aligned_segment, 4)
-        
-        segment_path = os.path.join(dataroot_dir, 'aligned_segment.png')
 
-        # 
+        segment_path = os.path.join(dataroot_dir, 'aligned_segment.png')
         cv2.imwrite(segment_path, aligned_segment)
+
+        # overlay
+        real_img, fake_img, blended_img = self.overlay_processor.segment(
+            docId, segment_path)
+
+        stacked = np.hstack((real_img, fake_img, blended_img))
+        image_process_path = f'/tmp/segmentation-mask/stacked_{docId}.png'
+        imwrite(image_process_path, stacked)
+        
         seg_fragments, img, segmask = segmenter.segment(docId, segment_path)
 
-        # Extract boxes and turn them into boxes
-        # overlay_boxes, box_fragment_imgs, overlay_img, _ = box_processor.process_full_extraction(id, img)
-        # segmenter.fragment_to_box_snippet(id, seg_fragments, overlay_img)
-        overlay_img = img
+        img = blended_img
+        overlay_img = blended_img
 
         m1 = current_milli_time()
         log.info('[%s] Segmentation completed in : %s(ms)', docId, m1-m0)
-        
-        alpha = 0.5 
-        shape=img.shape
+
+        alpha = 0.5
+        shape = img.shape
         h = shape[0]
         w = shape[1]
 
-        canvas_img = np.ones((h, w, 3), np.uint8) * 255 # white canvas
+        canvas_img = np.ones((h, w, 3), np.uint8) * 255
         canvas_img = cv2.addWeighted(canvas_img, alpha, segmask, 1 - alpha, 0)
         canvas_img = cv2.addWeighted(canvas_img, alpha, overlay_img, 1 - alpha, 0)
 
         if True:
-            file_path = os.path.join(debug_dir, "text_over_segmask.png")
-            cv2.imwrite(file_path, canvas_img)
-
-        real,fake,blended = self.overlay_processor.segment(docId, segment_path)
-
-        stacked = np.hstack((real, fake, blended))
-        image_process_path = f'/tmp/segmentation-mask/stacked_{docId}.jpg'
-        imwrite(image_process_path, stacked)
-        
-
-
-        # # prep the image before processing
-        # # we do this here as first step otherwise we will have to handle this during 
-        # # different processing steps
-        # img = read_image(img_path)
-        # img = make_power_2_cv2(img, 4)
-        # filename = img_path.split('/')[-1]
-        # docId = filename.split('.')[0]
-        # tmp_dir = ensure_exists(os.path.join(work_dir, docId))
-        # temp_file_path = os.path.join(tmp_dir, filename)
-        # imwrite(temp_file_path, img)
+            cv2.imwrite(os.path.join(debug_dir, "text_over_segmask.png"), canvas_img)            
+            cv2.imwrite(os.path.join(debug_dir, "blended_img.png"), blended_img)            
         
         # All models need to be rebuild
         fields = config['fields']
