@@ -30,6 +30,7 @@ class FormOverlay:
         args = [
             '--dataroot', './data',
             '--name', 'hicfa_mask_global',
+            '--name', 'template_mask_global',
             '--model', 'test',
             '--netG', 'global',
             '--direction', 'AtoB',
@@ -101,7 +102,7 @@ class FormOverlay:
             # This is a work around for now
 
             if img.shape != image_numpy.shape:
-                print(f'WARNING: overlay shapes do not match(adjusting): {img.shape} != {image_numpy.shape}')
+                print(f'WARNING(FIXME): overlay shapes do not match(adjusting): {img.shape} != {image_numpy.shape}')
                 return image_numpy[:img.shape[0], :img.shape[1], :]
 
             return image_numpy
@@ -113,11 +114,9 @@ class FormOverlay:
         real = read_image(real_img)
         fake = read_image(fake_img)
 
-        print('Image shapes ***')
+        print(f'Image shapes (real, fake) : {real.shape} != {fake.shape}')
         # Sizes of input arguments do not match
-        print(real.shape)
-        print(fake.shape)
-
+        # this happens sometimes after a forward pass, the FAKE image is larger than the input
         if real.shape != fake.shape:
             raise Exception(f'Sizes of input arguments do not match(real, fake) : {real.shape} != {fake.shape}')
 
@@ -159,6 +158,20 @@ class FormOverlay:
             print(f'Unable to segment image :{img_path}')
             return None, None
 
+        # Causes by forward pass, incrementing size of the ouput layer
+        if real_img.shape != fake_mask.shape:
+            print(f'WARNING(FIXME/ADJUSTING): Sizes of input arguments do not match(real, fake) : {real_img.shape} != {fake_mask.shape}')
+            # tmp_img = np.ones((fake.shape[0], fake.shape[1], 3), dtype = np.uint8) * 255
+            h = min(real_img.shape[0], fake_mask.shape[0])
+            w = min(real_img.shape[1], fake_mask.shape[1])
+            # # make a blank image
+            # img_r = np.ones((h, w), dtype = np.uint8) * 255
+            # img_f = np.ones((h, w), dtype = np.uint8) * 255
+            real_img = real_img[:h, :w, :]
+            fake_mask = fake_mask[:h, :w, :]
+            
+            print(f'Image shapes after(real, fake) : {real_img.shape} : {fake_mask.shape}')
+        
         blended = self.blend_to_text(real_img, fake_mask)
         # viewImage(segmask, 'segmask')
         tm = time.time_ns()

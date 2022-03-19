@@ -26,27 +26,67 @@ def imwrite(path, img):
 
 if __name__ == '__main__':
 
+    if False:
+        from PIL import Image
+        image = Image.open('/home/gbugaj/data/rms-asp/149495857/PID_576_7188_0_149495857_converted.tif')
+        image.save('/home/gbugaj/data/rms-asp/149495857/PID_576_7188_0_149495857_converted_pillow.tif', compression='group4')
+
+
+        import numpy as np
+        from PIL import Image
+        img = Image.new("1", (800, 1280), (255))
+
+        imlist = []
+        img_dir = '/home/gbugaj/data/rms-asp/149495857/clean/'
+
+        for _path in glob.glob(os.path.join(img_dir,'*.tif')  ):
+            src_img_path = os.path.join(img_dir, _path)
+            print(src_img_path)
+            src = Image.open(_path)
+            imlist.append(src)
+
+        img.save("/home/gbugaj/data/rms-asp/149495857/converted.tif", compression="group4", save_all=True,  append_images=imlist)
+                    
+
+
+        os.exit()
     work_dir='/tmp/form-segmentation'
     img_path='/home/greg/tmp/hicfa/PID_10_5_0_3100.original.tif'
 
     overlay_processor = FormOverlay(work_dir=work_dir)
     img_dir = '/home/gbugaj/devio/pytorch-CycleGAN-and-pix2pix/results/hicfa_mask_pp/test_latest/images'
+    img_dir = '/home/gbugaj/data/rms-asp/149512505/PID_1038_7836_0_149512505/'
 
-    # for _path in glob.glob(os.path.join(img_dir,'*PID_10_5_0_3101_real*')  ):
-    for _path in glob.glob(os.path.join(img_dir,'*real*')):
+
+    # for _path in glob.glob(os.path.join(img_dir,'*20220228.215.8047.63150004D.TIF*')  ):
+    for _path in glob.glob(os.path.join(img_dir,'*.tif')  ):
+    # for _path in glob.glob(os.path.join(img_dir,'*real*')):
         try:
             docId = _path.split('/')[-1].split('.')[0]
+            docId = _path.split('/')[-1]
             print(f'DocumentId : {docId}')
+
+            if os.path.exists(f'{img_dir}/clean/{docId}'):
+                continue
+
             src_img_path = os.path.join(img_dir, _path)
             real,fake,blended = overlay_processor.segment(docId, src_img_path)
 
             stacked = np.hstack((real, fake, blended))
-            image_process_path = f'/tmp/segmentation-mask/stacked_{docId}.jpg'
+            print('Saving document')
+            # image_process_path = f'/tmp/segmentation-mask/stacked_{docId}.jpg'
+            image_process_path = f'/home/gbugaj/data/rms-asp/149512505/stacked/stacked_{docId}.png'
             imwrite(image_process_path, stacked)
 
+            # image_process_path = f'/home/gbugaj/data/rms-asp/149495857/clean/{docId}.tif'
+            image_process_path = f'/home/gbugaj/data/rms-asp/149512505/clean/{docId}' # This will have the .tif extension
+            imwrite(image_process_path, blended)
+
         except Exception as ident:
-            raise ident
+            # raise ident
             print(ident)
+
+
 
     if False :
         print('OMR Detection')
@@ -171,3 +211,6 @@ if __name__ == '__main__':
         snippet = cv2.imread(img_path)
         boxer = BoxProcessor(work_dir, cuda=False)
         boxer.process_full_extraction('id', snippet, .3)
+
+
+
